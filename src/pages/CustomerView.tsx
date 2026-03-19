@@ -1,0 +1,119 @@
+import React from 'react';
+import { useLiveRates, RateItem } from '../useLiveRates';
+import { useAppConfig } from '../useAppConfig';
+import { RefreshCw, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { PriceFlash } from '../components/PriceFlash';
+
+export default function CustomerView() {
+  const { goldRates, silverRates, error, lastUpdated } = useLiveRates();
+  const { config } = useAppConfig();
+
+  const renderTable = (title: string, rates: RateItem[], type: 'gold' | 'silver') => {
+    const visibleRates = rates.filter(r => config.itemVisibility[r.id] !== false);
+    
+    if (visibleRates.length === 0) return null;
+
+    return (
+      <div className="mb-8 overflow-hidden rounded-xl border border-white/10 bg-zinc-900/50 shadow-xl backdrop-blur-sm">
+        <div className="border-b border-white/10 bg-zinc-800/50 px-6 py-4">
+          <h2 className="text-xl font-semibold text-zinc-100">{title}</h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-zinc-300">
+            <thead className="bg-zinc-800/30 text-xs uppercase text-zinc-400">
+              <tr>
+                <th className="px-6 py-4 font-medium">Product</th>
+                <th className="px-6 py-4 font-medium text-right">Live Rate</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              <AnimatePresence>
+                {visibleRates.map((rate) => {
+                  const baseCommPerGram = type === 'gold' ? config.goldCommPerGram : config.silverCommPerGram;
+                  const itemCommPerGram = config.itemCommissions[rate.id] !== undefined 
+                    ? config.itemCommissions[rate.id] 
+                    : baseCommPerGram;
+
+                  const totalCommission = itemCommPerGram * rate.weight;
+                  const finalAsk = rate.ask + totalCommission;
+
+                  return (
+                    <motion.tr
+                      key={rate.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="hover:bg-zinc-800/30 transition-colors"
+                    >
+                      <td className="px-6 py-4 font-medium text-zinc-200">
+                        {rate.name}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <PriceFlash price={finalAsk} defaultColor="text-emerald-400" />
+                      </td>
+                    </motion.tr>
+                  );
+                })}
+              </AnimatePresence>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-indigo-500/30">
+      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+        <header className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-white">Live Bullion Rates</h1>
+            <p className="mt-1 text-sm text-zinc-400">Real-time gold and silver prices</p>
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-2 rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-medium text-emerald-400 border border-emerald-500/20">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+              </span>
+              Live Updates
+            </div>
+            {lastUpdated && (
+              <span className="text-xs text-zinc-500 font-mono">
+                Updated: {lastUpdated.toLocaleTimeString()}
+              </span>
+            )}
+          </div>
+        </header>
+
+        {error && (
+          <div className="mb-8 flex items-center gap-3 rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-red-400">
+            <AlertCircle className="h-5 w-5 flex-shrink-0" />
+            <p className="text-sm font-medium">{error}</p>
+          </div>
+        )}
+
+        {!error && goldRates.length === 0 && silverRates.length === 0 && (
+          <div className="flex h-64 flex-col items-center justify-center gap-4 rounded-xl border border-white/5 bg-zinc-900/20">
+            <RefreshCw className="h-8 w-8 animate-spin text-indigo-500" />
+            <p className="text-sm text-zinc-400">Connecting to live feed...</p>
+          </div>
+        )}
+
+        {(goldRates.length > 0 || silverRates.length > 0) && (
+          <div className="space-y-8">
+            {renderTable('Gold', goldRates, 'gold')}
+            {renderTable('Silver', silverRates, 'silver')}
+          </div>
+        )}
+
+        <footer className="mt-12 text-center pb-8">
+          <a href="/admin" className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors">
+            Admin Login
+          </a>
+        </footer>
+      </div>
+    </div>
+  );
+}
