@@ -35,18 +35,21 @@ export function useAppConfig() {
   }, []);
 
   const updateConfig = (updates: Partial<AppConfig>) => {
-    const newConfig = { ...config, ...updates };
-    setConfig(newConfig);
-    
-    // Save to API
-    fetch('/api/settings', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(newConfig),
-      cache: 'no-store',
-    }).catch((e) => console.error('Failed to save config to API', e));
+    setConfig((prevConfig) => {
+      const newConfig = { ...prevConfig, ...updates };
+      
+      // Save to API
+      fetch('/api/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newConfig),
+        cache: 'no-store',
+      }).catch((e) => console.error('Failed to save config to API', e));
+      
+      return newConfig;
+    });
   };
 
   return { config, updateConfig };

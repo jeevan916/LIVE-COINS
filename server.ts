@@ -35,8 +35,10 @@ if (!stmt.get()) {
 app.get('/api/settings', (req, res) => {
   try {
     const row = db.prepare('SELECT config FROM settings WHERE id = 1').get() as { config: string };
+    console.log('Fetching settings:', row.config);
     res.json(JSON.parse(row.config));
   } catch (error) {
+    console.error('Error fetching settings:', error);
     res.status(500).json({ error: 'Failed to fetch settings' });
   }
 });
@@ -44,9 +46,11 @@ app.get('/api/settings', (req, res) => {
 app.post('/api/settings', (req, res) => {
   try {
     const newConfig = req.body;
+    console.log('Saving settings:', newConfig);
     db.prepare('UPDATE settings SET config = ? WHERE id = 1').run(JSON.stringify(newConfig));
     res.json({ success: true });
   } catch (error) {
+    console.error('Error saving settings:', error);
     res.status(500).json({ error: 'Failed to save settings' });
   }
 });
