@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { db } from './firebase';
 
 export interface AppConfig {
   goldCommPerGram: number;
@@ -17,36 +19,31 @@ export const defaultConfig: AppConfig = {
 export function useAppConfig() {
   const [config, setConfig] = useState<AppConfig>(defaultConfig);
 
-  const fetchConfig = () => {
-    fetch('/api/settings', { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && !data.error) {
-          setConfig({ ...defaultConfig, ...data });
-        }
-      })
-      .catch((e) => {
-        console.error('Failed to fetch config from API', e);
-      });
-  };
-
   useEffect(() => {
-    fetchConfig();
+    const docRef = doc(db, 'settings', 'global');
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setConfig({ ...defaultConfig, ...docSnap.data() } as AppConfig);
+      } else {
+        // Initialize if not exists
+        setDoc(docRef, defaultConfig);
+      }
+    }, (error) => {
+      console.error('Failed to fetch config from Firestore', error);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const updateConfig = (updates: Partial<AppConfig>) => {
     setConfig((prevConfig) => {
       const newConfig = { ...prevConfig, ...updates };
       
-      // Save to API
-      fetch('/api/settings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newConfig),
-        cache: 'no-store',
-      }).catch((e) => console.error('Failed to save config to API', e));
+      // Save to Firestore
+      const docRef = doc(db, 'settings', 'global');
+      setDoc(docRef, newConfig, { merge: true }).catch((e) => 
+        console.error('Failed to save config to Firestore', e)
+      );
       
       return newConfig;
     });

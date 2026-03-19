@@ -1,0 +1,22 @@
+{
+  "entities": {
+    "AppConfig": {
+      "title": "AppConfig",
+      "description": "Global application configuration for gold and silver rates",
+      "type": "object",
+      "properties": {
+        "goldCommPerGram": { "type": "number" },
+        "silverCommPerGram": { "type": "number" },
+        "itemCommissions": { "type": "object" },
+        "itemVisibility": { "type": "object" }
+      },
+      "required": ["goldCommPerGram", "silverCommPerGram", "itemCommissions", "itemVisibility"]
+    }
+  },
+  "firestore": {
+    "/settings/global": {
+      "schema": { "$ref": "AppConfig" },
+      "description": "Global settings for the application"
+    }
+  }
+}
