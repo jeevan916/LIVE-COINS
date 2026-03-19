@@ -17,9 +17,8 @@ export const defaultConfig: AppConfig = {
 export function useAppConfig() {
   const [config, setConfig] = useState<AppConfig>(defaultConfig);
 
-  useEffect(() => {
-    // Fetch from API
-    fetch('/api/settings')
+  const fetchConfig = () => {
+    fetch('/api/settings', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
         if (data && !data.error) {
@@ -28,16 +27,11 @@ export function useAppConfig() {
       })
       .catch((e) => {
         console.error('Failed to fetch config from API', e);
-        // Fallback to localStorage if API fails
-        const saved = localStorage.getItem('eliteGoldConfig');
-        if (saved) {
-          try {
-            setConfig({ ...defaultConfig, ...JSON.parse(saved) });
-          } catch (err) {
-            console.error('Failed to parse local config', err);
-          }
-        }
       });
+  };
+
+  useEffect(() => {
+    fetchConfig();
   }, []);
 
   const updateConfig = (updates: Partial<AppConfig>) => {
@@ -51,10 +45,8 @@ export function useAppConfig() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(newConfig),
+      cache: 'no-store',
     }).catch((e) => console.error('Failed to save config to API', e));
-
-    // Also save to localStorage as a backup
-    localStorage.setItem('eliteGoldConfig', JSON.stringify(newConfig));
   };
 
   return { config, updateConfig };
