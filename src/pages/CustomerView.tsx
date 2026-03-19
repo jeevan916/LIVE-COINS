@@ -7,9 +7,10 @@ import { PriceFlash } from '../components/PriceFlash';
 
 export default function CustomerView() {
   const { goldRates, silverRates, error, lastUpdated } = useLiveRates();
-  const { config } = useAppConfig();
+  const { config, loading } = useAppConfig();
 
   const renderTable = (title: string, rates: RateItem[], type: 'gold' | 'silver') => {
+    if (loading) return null;
     const visibleRates = rates.filter(r => config.itemVisibility[r.id] !== false);
     
     if (visibleRates.length === 0) return null;

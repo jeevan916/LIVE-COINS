@@ -8,7 +8,7 @@ import { PriceFlash } from '../components/PriceFlash';
 
 export default function AdminView() {
   const { goldRates, silverRates, error, lastUpdated } = useLiveRates();
-  const { config, updateConfig } = useAppConfig();
+  const { config, updateConfig, loading } = useAppConfig();
   const [showSettings, setShowSettings] = useState(true);
   const navigate = useNavigate();
 
@@ -31,7 +31,7 @@ export default function AdminView() {
   };
 
   const renderTable = (title: string, rates: RateItem[], type: 'gold' | 'silver') => {
-    if (rates.length === 0) return null;
+    if (loading || rates.length === 0) return null;
 
     return (
       <div className="mb-8 overflow-hidden rounded-xl border border-white/10 bg-zinc-900/50 shadow-xl backdrop-blur-sm">

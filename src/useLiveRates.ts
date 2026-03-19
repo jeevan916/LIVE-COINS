@@ -79,7 +79,7 @@ function parseRates(text: string, type: 'gold' | 'silver'): RateItem[] {
     let name = parts[2] || '';
     
     // Remove specific unwanted text
-    name = name.replace('with GST (Min.2 Pc.)', '').trim();
+    name = name.replace('(Min.2 Pc.)', '').trim();
     
     return {
       id: parts[1],
