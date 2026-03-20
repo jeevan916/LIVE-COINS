@@ -7,6 +7,7 @@ export interface AppConfig {
   silverCommPerGram: number;
   itemCommissions: Record<string, number>;
   itemVisibility: Record<string, boolean>;
+  socketKeys: string[];
 }
 
 export const defaultConfig: AppConfig = {
@@ -14,6 +15,7 @@ export const defaultConfig: AppConfig = {
   silverCommPerGram: 0,
   itemCommissions: {},
   itemVisibility: {},
+  socketKeys: [],
 };
 
 enum OperationType {

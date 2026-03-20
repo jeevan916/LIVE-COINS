@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLiveRates, RateItem } from '../useLiveRates';
 import { useAppConfig } from '../useAppConfig';
-import { Settings, RefreshCw, AlertCircle, Eye, EyeOff, LogOut } from 'lucide-react';
+import { Settings, RefreshCw, AlertCircle, Eye, EyeOff, LogOut, Key, Trash2, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { PriceFlash } from '../components/PriceFlash';
@@ -10,6 +10,7 @@ export default function AdminView() {
   const { goldRates, silverRates, error, lastUpdated } = useLiveRates();
   const { config, updateConfig, loading } = useAppConfig();
   const [showSettings, setShowSettings] = useState(true);
+  const [newKey, setNewKey] = useState('');
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -27,6 +28,24 @@ export default function AdminView() {
     const current = config.itemVisibility[id] ?? true;
     updateConfig({
       itemVisibility: { ...config.itemVisibility, [id]: !current }
+    });
+  };
+
+  const addSocketKey = () => {
+    if (!newKey.trim()) return;
+    const currentKeys = config.socketKeys || [];
+    if (!currentKeys.includes(newKey.trim())) {
+      updateConfig({
+        socketKeys: [...currentKeys, newKey.trim()]
+      });
+    }
+    setNewKey('');
+  };
+
+  const removeSocketKey = (keyToRemove: string) => {
+    const currentKeys = config.socketKeys || [];
+    updateConfig({
+      socketKeys: currentKeys.filter(k => k !== keyToRemove)
     });
   };
 
@@ -201,6 +220,52 @@ export default function AdminView() {
                       placeholder="0"
                       className="w-full rounded-lg border border-indigo-500/30 bg-zinc-900/50 py-2 pl-8 pr-3 text-sm text-zinc-200 placeholder-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 border-t border-indigo-500/20 pt-6">
+                <h3 className="text-lg font-medium text-indigo-300 mb-4 flex items-center gap-2">
+                  <Key className="w-5 h-5" />
+                  API Keys (Socket Authentication)
+                </h3>
+                <div className="space-y-4">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newKey}
+                      onChange={(e) => setNewKey(e.target.value)}
+                      placeholder="Enter a new secure key..."
+                      className="flex-1 rounded-lg border border-indigo-500/30 bg-zinc-900/50 py-2 px-3 text-sm text-zinc-200 placeholder-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      onKeyDown={(e) => e.key === 'Enter' && addSocketKey()}
+                    />
+                    <button
+                      onClick={addSocketKey}
+                      disabled={!newKey.trim()}
+                      className="flex items-center gap-2 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Key
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    {config.socketKeys && config.socketKeys.length > 0 ? (
+                      config.socketKeys.map((key, index) => (
+                        <div key={index} className="flex items-center justify-between rounded-lg border border-white/5 bg-zinc-900/50 px-4 py-3">
+                          <code className="text-sm text-emerald-400 font-mono">{key}</code>
+                          <button
+                            onClick={() => removeSocketKey(key)}
+                            className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-400/10 rounded-md transition-colors"
+                            title="Remove Key"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-zinc-500 italic">No keys configured. Anyone can connect or fallback to environment variable.</p>
+                    )}
                   </div>
                 </div>
               </div>
