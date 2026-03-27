@@ -1,3 +1,4 @@
+import dotenv from 'dotenv';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
@@ -5,6 +6,11 @@ import http from 'http';
 import { Server } from 'socket.io';
 import fs from 'fs';
 import mysql from 'mysql2/promise';
+
+// Try loading environment variables from the specific Hostinger path first
+dotenv.config({ path: path.resolve(process.cwd(), '.builds/config/.env') });
+// Fallback to standard .env in the root if the above doesn't exist
+dotenv.config();
 
 const app = express();
 const PORT = 3000;
