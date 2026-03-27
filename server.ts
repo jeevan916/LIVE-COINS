@@ -139,19 +139,21 @@ async function startServer() {
     next();
   });
 
-  // API Routes
-  app.use('/api', (req, res, next) => {
+  // API Router
+  const apiRouter = express.Router();
+
+  apiRouter.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     next();
   });
 
-  app.get('/api/health', (req, res) => {
+  apiRouter.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
-  app.get('/api/settings', async (req, res) => {
+  apiRouter.get('/settings', async (req, res) => {
     try {
       const settings = await getSettingsFromDB();
       res.json(settings);
@@ -161,7 +163,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/settings', async (req, res) => {
+  apiRouter.post('/settings', async (req, res) => {
     try {
       const authHeader = req.headers['x-admin-password'];
       if (authHeader !== 'jeevan@916$') {
@@ -170,7 +172,6 @@ async function startServer() {
 
       const newSettings = req.body;
       
-      // Upsert into MySQL
       const query = `
         INSERT INTO settings (id, goldCommPerGram, silverCommPerGram, itemCommissions, itemVisibility, socketKeys)
         VALUES (1, ?, ?, ?, ?, ?)
@@ -197,9 +198,8 @@ async function startServer() {
     }
   });
 
-  app.get('/api/rates', async (req, res) => {
+  apiRouter.get('/rates', async (req, res) => {
     try {
-      // Authentication check
       const authHeader = req.headers.authorization;
       const token = authHeader ? authHeader.split(' ')[1] : req.query.key;
       
@@ -258,30 +258,27 @@ async function startServer() {
   });
 
   // Catch-all for /api/* to prevent Vite from serving index.html for missing APIs
-  app.all('/api/*', (req, res) => {
+  apiRouter.all('*', (req, res) => {
     res.status(404).json({ error: `API route not found: ${req.method} ${req.url}` });
   });
 
-  // Authentication middleware
+  // Mount API Router
+  app.use('/api', apiRouter);
+
+  // Authentication middleware for Socket.io
   io.use(async (socket, next) => {
     const token = socket.handshake.auth.token;
-    
-    // Get current config from database
     const config = await getSettingsFromDB();
     const validKeys = config.socketKeys || [];
-    
-    // Fallback to environment variable if no keys are in the database
     const envSecretKey = process.env.SOCKET_SECRET_KEY;
     
     if (validKeys.length === 0 && !envSecretKey) {
-      console.warn('WARNING: No socket keys configured. Socket connections are unsecured.');
       return next();
     }
 
     if (validKeys.includes(token) || (envSecretKey && token === envSecretKey)) {
       next();
     } else {
-      console.log('Socket connection rejected: Invalid token');
       next(new Error('Authentication error: Invalid token'));
     }
   });
@@ -300,8 +297,6 @@ async function startServer() {
 
         const rawGoldRates = parseRates(goldText, 'gold');
         const rawSilverRates = parseRates(silverText, 'silver');
-
-        // Apply config
         const config = await getSettingsFromDB();
 
         const processRates = (rates: any[], type: 'gold' | 'silver') => {
@@ -324,12 +319,9 @@ async function startServer() {
             });
         };
 
-        const processedGold = processRates(rawGoldRates, 'gold');
-        const processedSilver = processRates(rawSilverRates, 'silver');
-
         io.emit('rates', {
-          goldRates: processedGold,
-          silverRates: processedSilver,
+          goldRates: processRates(rawGoldRates, 'gold'),
+          silverRates: processRates(rawSilverRates, 'silver'),
           timestamp: new Date().toISOString()
         });
       }
@@ -339,18 +331,41 @@ async function startServer() {
   }, 2000);
 
   // Vite middleware for development
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
+  const isProduction = process.env.NODE_ENV === 'production' || fs.existsSync(path.join(process.cwd(), 'dist'));
+  
+  if (!isProduction) {
+    try {
+      const { createServer: createViteServer } = await import('vite');
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } catch (err) {
+      console.error('Failed to start Vite server, falling back to static serving:', err);
+      const distPath = path.join(process.cwd(), 'dist');
+      app.use(express.static(distPath));
+      app.get('*', (req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    }
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    if (fs.existsSync(distPath)) {
+      app.use(express.static(distPath));
+      app.get('*', (req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    } else {
+      console.warn('Production mode but dist folder not found. Serving API only.');
+      app.get('*', (req, res) => {
+        if (req.url.startsWith('/api')) {
+          res.status(404).json({ error: 'API route not found' });
+        } else {
+          res.status(404).send('Application not built. Please run npm run build.');
+        }
+      });
+    }
   }
 
   httpServer.listen(PORT, '0.0.0.0', () => {
