@@ -4,28 +4,40 @@ import path from 'path';
 import http from 'http';
 import { Server } from 'socket.io';
 import fs from 'fs';
-import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import mysql from 'mysql2/promise';
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
 
-// Initialize Firebase
-const firebaseConfigPath = path.resolve('./firebase-applet-config.json');
-let db: any = null;
+// Initialize MySQL
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || 'localhost',
+  user: 'u477692720_jeevan999coin',
+  password: process.env.DB_PASSWORD || 'jeevan@916$',
+  database: 'u477692720_jeevan999coin',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
 
-try {
-  if (fs.existsSync(firebaseConfigPath)) {
-    const firebaseConfig = JSON.parse(fs.readFileSync(firebaseConfigPath, 'utf-8'));
-    const firebaseApp = initializeApp(firebaseConfig);
-    db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
-  } else {
-    console.warn('firebase-applet-config.json not found. Firebase will not be initialized in server.');
+async function initDB() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS settings (
+        id INT PRIMARY KEY,
+        goldCommPerGram DECIMAL(10, 2) DEFAULT 0,
+        silverCommPerGram DECIMAL(10, 2) DEFAULT 0,
+        itemCommissions JSON,
+        itemVisibility JSON,
+        socketKeys JSON
+      )
+    `);
+    console.log('Database initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize database:', error);
   }
-} catch (error) {
-  console.error('Error initializing Firebase in server:', error);
 }
 
 // Helper functions for parsing rates
@@ -61,7 +73,7 @@ function parseRates(text: string, type: 'gold' | 'silver'): any[] {
   }).filter(item => item.id && item.name);
 }
 
-async function getSettingsFromFirebase() {
+async function getSettingsFromDB() {
   const defaultConfig = {
     goldCommPerGram: 0,
     silverCommPerGram: 0,
@@ -70,34 +82,86 @@ async function getSettingsFromFirebase() {
     socketKeys: [],
   };
 
-  if (!db) return defaultConfig;
-
   try {
-    const docRef = doc(db, 'settings/global');
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      return { ...defaultConfig, ...docSnap.data() };
+    const [rows] = await pool.query('SELECT * FROM settings WHERE id = 1');
+    if (Array.isArray(rows) && rows.length > 0) {
+      const row = rows[0] as any;
+      return {
+        goldCommPerGram: row.goldCommPerGram || 0,
+        silverCommPerGram: row.silverCommPerGram || 0,
+        itemCommissions: typeof row.itemCommissions === 'string' ? JSON.parse(row.itemCommissions) : (row.itemCommissions || {}),
+        itemVisibility: typeof row.itemVisibility === 'string' ? JSON.parse(row.itemVisibility) : (row.itemVisibility || {}),
+        socketKeys: typeof row.socketKeys === 'string' ? JSON.parse(row.socketKeys) : (row.socketKeys || []),
+      };
     }
   } catch (error) {
-    console.error('Error fetching settings from Firebase:', error);
+    console.error('Error fetching settings from MySQL:', error);
   }
   return defaultConfig;
 }
 
 async function startServer() {
+  await initDB();
+
   const httpServer = http.createServer(app);
   const io = new Server(httpServer, {
     cors: { origin: '*' }
   });
 
   // API Routes
+  app.get('/api/settings', async (req, res) => {
+    try {
+      const settings = await getSettingsFromDB();
+      res.json(settings);
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+      res.status(500).json({ error: 'Failed to fetch settings' });
+    }
+  });
+
+  app.post('/api/settings', async (req, res) => {
+    try {
+      const authHeader = req.headers['x-admin-password'];
+      if (authHeader !== 'jeevan@916$') {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const newSettings = req.body;
+      
+      // Upsert into MySQL
+      const query = `
+        INSERT INTO settings (id, goldCommPerGram, silverCommPerGram, itemCommissions, itemVisibility, socketKeys)
+        VALUES (1, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          goldCommPerGram = VALUES(goldCommPerGram),
+          silverCommPerGram = VALUES(silverCommPerGram),
+          itemCommissions = VALUES(itemCommissions),
+          itemVisibility = VALUES(itemVisibility),
+          socketKeys = VALUES(socketKeys)
+      `;
+      
+      await pool.query(query, [
+        newSettings.goldCommPerGram || 0,
+        newSettings.silverCommPerGram || 0,
+        JSON.stringify(newSettings.itemCommissions || {}),
+        JSON.stringify(newSettings.itemVisibility || {}),
+        JSON.stringify(newSettings.socketKeys || [])
+      ]);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error updating settings:', error);
+      res.status(500).json({ error: 'Failed to update settings' });
+    }
+  });
+
   app.get('/api/rates', async (req, res) => {
     try {
       // Authentication check
       const authHeader = req.headers.authorization;
       const token = authHeader ? authHeader.split(' ')[1] : req.query.key;
       
-      const config = await getSettingsFromFirebase();
+      const config = await getSettingsFromDB();
       const validKeys = config.socketKeys || [];
       const envSecretKey = process.env.SOCKET_SECRET_KEY;
       
@@ -119,7 +183,6 @@ async function startServer() {
 
       const rawGoldRates = parseRates(goldText, 'gold');
       const rawSilverRates = parseRates(silverText, 'silver');
-      const config = await getSettingsFromFirebase();
 
       const processRates = (rates: any[], type: 'gold' | 'silver') => {
         return rates
@@ -157,7 +220,7 @@ async function startServer() {
     const token = socket.handshake.auth.token;
     
     // Get current config from database
-    const config = await getSettingsFromFirebase();
+    const config = await getSettingsFromDB();
     const validKeys = config.socketKeys || [];
     
     // Fallback to environment variable if no keys are in the database
@@ -192,7 +255,7 @@ async function startServer() {
         const rawSilverRates = parseRates(silverText, 'silver');
 
         // Apply config
-        const config = await getSettingsFromFirebase();
+        const config = await getSettingsFromDB();
 
         const processRates = (rates: any[], type: 'gold' | 'silver') => {
           return rates

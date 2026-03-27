@@ -11,7 +11,7 @@ export default function Login() {
     e.preventDefault();
     // Simple hardcoded password for demonstration
     if (password === 'jeevan@916$') {
-      localStorage.setItem('eliteGoldAdminAuth', 'true');
+      localStorage.setItem('eliteGoldAdminAuth', password);
       navigate('/admin');
     } else {
       setError('Invalid password');

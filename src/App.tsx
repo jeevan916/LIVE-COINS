@@ -7,7 +7,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Simple auth guard component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const isAuthenticated = localStorage.getItem('eliteGoldAdminAuth') === 'true';
+  const isAuthenticated = localStorage.getItem('eliteGoldAdminAuth') === 'jeevan@916$';
   
   if (!isAuthenticated) {
     return <Navigate to="/admin/login" replace />;
