@@ -108,12 +108,6 @@ export default function CustomerView() {
             {renderTable('Silver', silverRates, 'silver')}
           </div>
         )}
-
-        <footer className="mt-12 text-center pb-8">
-          <a href="/admin" className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors">
-            Admin Login
-          </a>
-        </footer>
       </div>
     </div>
   );

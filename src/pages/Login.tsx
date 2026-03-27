@@ -10,7 +10,7 @@ export default function Login() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     // Simple hardcoded password for demonstration
-    if (password === 'admin123') {
+    if (password === 'jeevan@916$') {
       localStorage.setItem('eliteGoldAdminAuth', 'true');
       navigate('/admin');
     } else {
