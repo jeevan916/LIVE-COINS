@@ -8,7 +8,22 @@ import fs from 'fs';
 import mysql from 'mysql2/promise';
 
 // Try loading environment variables from the specific Hostinger path first
-dotenv.config({ path: path.resolve(process.cwd(), '.builds/config/.env') });
+const possibleEnvPaths = [
+  path.resolve(process.cwd(), 'public_html/.builds/config/.env'),
+  path.resolve(process.cwd(), '.builds/config/.env'),
+  path.resolve(process.cwd(), '../.builds/config/.env'),
+  path.resolve(__dirname, 'public_html/.builds/config/.env'),
+  path.resolve(__dirname, '../.builds/config/.env')
+];
+
+for (const envPath of possibleEnvPaths) {
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+    console.log(`Loaded environment variables from ${envPath}`);
+    break;
+  }
+}
+
 // Fallback to standard .env in the root if the above doesn't exist
 dotenv.config();
 
