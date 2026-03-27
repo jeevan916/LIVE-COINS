@@ -14,9 +14,9 @@ app.use(express.json());
 // Initialize MySQL
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
-  user: 'u477692720_jeevan999coin',
+  user: process.env.DB_USER || 'u477692720_jeevan999coin',
   password: process.env.DB_PASSWORD || 'jeevan@916$',
-  database: 'u477692720_jeevan999coin',
+  database: process.env.DB_NAME || 'u477692720_jeevan999coin',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
