@@ -133,7 +133,24 @@ async function startServer() {
     cors: { origin: '*' }
   });
 
+  // Request logging middleware
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+  });
+
   // API Routes
+  app.use('/api', (req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    next();
+  });
+
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
   app.get('/api/settings', async (req, res) => {
     try {
       const settings = await getSettingsFromDB();
@@ -238,6 +255,11 @@ async function startServer() {
       console.error('Error fetching rates:', error);
       res.status(500).json({ error: 'Failed to fetch rates' });
     }
+  });
+
+  // Catch-all for /api/* to prevent Vite from serving index.html for missing APIs
+  app.all('/api/*', (req, res) => {
+    res.status(404).json({ error: `API route not found: ${req.method} ${req.url}` });
   });
 
   // Authentication middleware

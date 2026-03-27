@@ -30,7 +30,7 @@ export function useAppConfig() {
     
     const fetchConfig = async () => {
       try {
-        const res = await fetch('/api/settings');
+        const res = await fetch(`/api/settings?t=${Date.now()}`);
         if (!res.ok) {
           const text = await res.text();
           throw new Error(`Failed to fetch settings: ${res.status} ${res.statusText} - ${text.substring(0, 100)}`);
