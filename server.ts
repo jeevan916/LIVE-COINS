@@ -37,6 +37,12 @@ const PORT = 3000;
 app.use(express.json());
 
 // Initialize MySQL
+console.log('Database Configuration:', {
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'u477692720_jeevan999coin',
+  database: process.env.DB_NAME || 'u477692720_jeevan999coin'
+});
+
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'u477692720_jeevan999coin',
@@ -128,21 +134,11 @@ async function getSettingsFromDB() {
 async function startServer() {
   await initDB();
 
-  const httpServer = http.createServer(app);
-  const io = new Server(httpServer, {
-    cors: { origin: '*' }
-  });
-
-  // Request logging middleware
-  app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-    next();
-  });
-
-  // API Router
+  // API Router definition
   const apiRouter = express.Router();
 
   apiRouter.use((req, res, next) => {
+    console.log(`[API Request] ${req.method} ${req.url}`);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
@@ -158,7 +154,7 @@ async function startServer() {
       const settings = await getSettingsFromDB();
       res.json(settings);
     } catch (error) {
-      console.error('Error fetching settings:', error);
+      console.error('Error fetching settings API:', error);
       res.status(500).json({ error: 'Failed to fetch settings' });
     }
   });
@@ -259,11 +255,25 @@ async function startServer() {
 
   // Catch-all for /api/* to prevent Vite from serving index.html for missing APIs
   apiRouter.all('*', (req, res) => {
+    console.warn(`[API 404] ${req.method} ${req.url}`);
     res.status(404).json({ error: `API route not found: ${req.method} ${req.url}` });
   });
 
-  // Mount API Router
+  // Mount API Router EARLY
   app.use('/api', apiRouter);
+
+  const httpServer = http.createServer(app);
+  const io = new Server(httpServer, {
+    cors: { origin: '*' }
+  });
+
+  // Request logging middleware for non-API requests
+  app.use((req, res, next) => {
+    if (!req.url.startsWith('/api')) {
+      console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    }
+    next();
+  });
 
   // Authentication middleware for Socket.io
   io.use(async (socket, next) => {
@@ -345,7 +355,8 @@ async function startServer() {
       console.error('Failed to start Vite server, falling back to static serving:', err);
       const distPath = path.join(process.cwd(), 'dist');
       app.use(express.static(distPath));
-      app.get('*', (req, res) => {
+      app.get('*', (req, res, next) => {
+        if (req.url.startsWith('/api')) return next();
         res.sendFile(path.join(distPath, 'index.html'));
       });
     }
@@ -353,7 +364,8 @@ async function startServer() {
     const distPath = path.join(process.cwd(), 'dist');
     if (fs.existsSync(distPath)) {
       app.use(express.static(distPath));
-      app.get('*', (req, res) => {
+      app.get('*', (req, res, next) => {
+        if (req.url.startsWith('/api')) return next();
         res.sendFile(path.join(distPath, 'index.html'));
       });
     } else {
