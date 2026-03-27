@@ -1,6 +1,5 @@
 import dotenv from 'dotenv';
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -54,20 +53,6 @@ const pool = mysql.createPool({
   connectTimeout: 10000, // 10 seconds timeout
   enableKeepAlive: true,
   keepAliveInitialDelay: 10000
-});
-
-// Handle pool errors
-pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
-  if (err.code === 'PROTOCOL_CONNECTION_LOST') {
-    console.error('Database connection was closed.');
-  }
-  if (err.code === 'ER_CON_COUNT_ERROR') {
-    console.error('Database has too many connections.');
-  }
-  if (err.code === 'ECONNREFUSED') {
-    console.error('Database connection was refused.');
-  }
 });
 
 async function initDB() {
@@ -149,8 +134,6 @@ async function getSettingsFromDB() {
 }
 
 async function startServer() {
-  await initDB();
-
   // API Router definition
   const apiRouter = express.Router();
 
@@ -163,7 +146,11 @@ async function startServer() {
   });
 
   apiRouter.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    res.json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      dbConnected: pool !== null
+    });
   });
 
   apiRouter.get('/settings', async (req, res) => {
@@ -270,7 +257,7 @@ async function startServer() {
     }
   });
 
-  // Catch-all for /api/* to prevent Vite from serving index.html for missing APIs
+  // Catch-all for /api/* to prevent fall-through to static serving
   apiRouter.all('*', (req, res) => {
     console.warn(`[API 404] ${req.method} ${req.url}`);
     res.status(404).json({ error: `API route not found: ${req.method} ${req.url}` });
@@ -278,6 +265,13 @@ async function startServer() {
 
   // Mount API Router EARLY
   app.use('/api', apiRouter);
+
+  // Initialize DB in background
+  initDB().then(() => {
+    console.log('Database initialization complete');
+  }).catch(err => {
+    console.error('Database initialization failed:', err);
+  });
 
   const httpServer = http.createServer(app);
   const io = new Server(httpServer, {
@@ -396,6 +390,16 @@ async function startServer() {
       });
     }
   }
+
+  // Global error handler
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error('Unhandled Error:', err);
+    if (req.url.startsWith('/api')) {
+      res.status(500).json({ error: 'Internal Server Error', message: err.message });
+    } else {
+      next(err);
+    }
+  });
 
   httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
