@@ -72,6 +72,11 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 export function useAppConfig() {
   const [config, setConfig] = useState<AppConfig>(defaultConfig);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  if (error) {
+    throw error;
+  }
 
   useEffect(() => {
     const path = 'settings/global';
@@ -81,11 +86,21 @@ export function useAppConfig() {
         setConfig({ ...defaultConfig, ...docSnap.data() } as AppConfig);
       } else {
         // Initialize if not exists
-        setDoc(docRef, defaultConfig).catch((e) => handleFirestoreError(e, OperationType.WRITE, path));
+        setDoc(docRef, defaultConfig).catch((e) => {
+          try {
+            handleFirestoreError(e, OperationType.WRITE, path);
+          } catch (err) {
+            setError(err instanceof Error ? err : new Error(String(err)));
+          }
+        });
       }
       setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, path);
+    }, (e) => {
+      try {
+        handleFirestoreError(e, OperationType.GET, path);
+      } catch (err) {
+        setError(err instanceof Error ? err : new Error(String(err)));
+      }
       setLoading(false);
     });
 
@@ -99,9 +114,13 @@ export function useAppConfig() {
       // Save to Firestore
       const path = 'settings/global';
       const docRef = doc(db, path);
-      setDoc(docRef, newConfig, { merge: true }).catch((e) => 
-        handleFirestoreError(e, OperationType.WRITE, path)
-      );
+      setDoc(docRef, newConfig, { merge: true }).catch((e) => {
+        try {
+          handleFirestoreError(e, OperationType.WRITE, path);
+        } catch (err) {
+          setError(err instanceof Error ? err : new Error(String(err)));
+        }
+      });
       
       return newConfig;
     });

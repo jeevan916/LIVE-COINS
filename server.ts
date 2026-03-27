@@ -90,6 +90,68 @@ async function startServer() {
     cors: { origin: '*' }
   });
 
+  // API Routes
+  app.get('/api/rates', async (req, res) => {
+    try {
+      // Authentication check
+      const authHeader = req.headers.authorization;
+      const token = authHeader ? authHeader.split(' ')[1] : req.query.key;
+      
+      const config = await getSettingsFromFirebase();
+      const validKeys = config.socketKeys || [];
+      const envSecretKey = process.env.SOCKET_SECRET_KEY;
+      
+      if (validKeys.length > 0 || envSecretKey) {
+        if (!token || (!validKeys.includes(token as string) && token !== envSecretKey)) {
+          return res.status(401).json({ error: 'Unauthorized: Invalid or missing API key' });
+        }
+      }
+
+      const [goldRes, silverRes] = await Promise.all([
+        fetch('https://bcast.elitegold.net:7768/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/elite'),
+        fetch('https://bcast.elitegold.net:7768/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/elitesilvercoin')
+      ]);
+
+      if (!goldRes.ok || !silverRes.ok) throw new Error('Failed to fetch rates');
+
+      const goldText = await goldRes.text();
+      const silverText = await silverRes.text();
+
+      const rawGoldRates = parseRates(goldText, 'gold');
+      const rawSilverRates = parseRates(silverText, 'silver');
+      const config = await getSettingsFromFirebase();
+
+      const processRates = (rates: any[], type: 'gold' | 'silver') => {
+        return rates
+          .filter(r => config.itemVisibility[r.id] !== false)
+          .map(r => {
+            const baseCommPerGram = type === 'gold' ? config.goldCommPerGram : config.silverCommPerGram;
+            const itemCommPerGram = config.itemCommissions[r.id] !== undefined 
+              ? config.itemCommissions[r.id] 
+              : baseCommPerGram;
+            
+            const totalCommission = itemCommPerGram * r.weight;
+            return {
+              ...r,
+              ask: r.ask + totalCommission,
+              bid: r.bid + totalCommission,
+              high: r.high + totalCommission,
+              low: r.low + totalCommission,
+            };
+          });
+      };
+
+      res.json({
+        goldRates: processRates(rawGoldRates, 'gold'),
+        silverRates: processRates(rawSilverRates, 'silver'),
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error fetching rates:', error);
+      res.status(500).json({ error: 'Failed to fetch rates' });
+    }
+  });
+
   // Authentication middleware
   io.use(async (socket, next) => {
     const token = socket.handshake.auth.token;
