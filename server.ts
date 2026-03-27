@@ -6,6 +6,10 @@ import http from 'http';
 import { Server } from 'socket.io';
 import fs from 'fs';
 import mysql from 'mysql2/promise';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Try loading environment variables from the specific Hostinger path first
 const possibleEnvPaths = [

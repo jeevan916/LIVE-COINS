@@ -28,7 +28,9 @@ export function useLiveRates() {
         ]);
 
         if (!goldRes.ok || !silverRes.ok) {
-          throw new Error('Failed to fetch rates');
+          const gText = await goldRes.text();
+          const sText = await silverRes.text();
+          throw new Error(`Failed to fetch rates: Gold ${goldRes.status} - ${gText.substring(0, 50)}, Silver ${silverRes.status} - ${sText.substring(0, 50)}`);
         }
 
         const goldText = await goldRes.text();

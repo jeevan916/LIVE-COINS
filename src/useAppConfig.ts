@@ -31,7 +31,17 @@ export function useAppConfig() {
     const fetchConfig = async () => {
       try {
         const res = await fetch('/api/settings');
-        if (!res.ok) throw new Error('Failed to fetch settings');
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`Failed to fetch settings: ${res.status} ${res.statusText} - ${text.substring(0, 100)}`);
+        }
+        
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+           const text = await res.text();
+           throw new Error(`Expected JSON but received ${contentType}: ${text.substring(0, 100)}`);
+        }
+
         const data = await res.json();
         if (isMounted) {
           setConfig({ ...defaultConfig, ...data });
