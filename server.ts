@@ -36,21 +36,30 @@ const PORT = 3000;
 app.use(express.json());
 
 // Initialize MySQL
-console.log('Database Configuration:', {
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'u477692720_jeevan999coin',
-  database: process.env.DB_NAME || 'u477692720_jeevan999coin'
-});
-
-const pool = mysql.createPool({
+const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'u477692720_jeevan999coin',
   password: process.env.DB_PASSWORD || 'jeevan@916$',
-  database: process.env.DB_NAME || 'u477692720_jeevan999coin',
+  database: process.env.DB_NAME || 'u477692720_jeevan999coin'
+};
+
+console.log('Database Configuration:', {
+  host: dbConfig.host,
+  user: dbConfig.user,
+  database: dbConfig.database,
+  hasPassword: !!dbConfig.password
+});
+
+if (dbConfig.host === 'localhost') {
+  console.warn('WARNING: DB_HOST is set to localhost. On Hostinger, this usually needs to be the MySQL host provided in hPanel (e.g., mysql.hostinger.com).');
+}
+
+const pool = mysql.createPool({
+  ...dbConfig,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  connectTimeout: 10000, // 10 seconds timeout
+  connectTimeout: 15000, // 15 seconds timeout
   enableKeepAlive: true,
   keepAliveInitialDelay: 10000
 });
@@ -351,44 +360,39 @@ async function startServer() {
     }
   }, 2000);
 
-  // Vite middleware for development
-  const isProduction = process.env.NODE_ENV === 'production' || fs.existsSync(path.join(process.cwd(), 'dist'));
-  
-  if (!isProduction) {
-    try {
-      const { createServer: createViteServer } = await import('vite');
-      const vite = await createViteServer({
-        server: { middlewareMode: true },
-        appType: 'spa',
-      });
-      app.use(vite.middlewares);
-    } catch (err) {
-      console.error('Failed to start Vite server, falling back to static serving:', err);
-      const distPath = path.join(process.cwd(), 'dist');
-      app.use(express.static(distPath));
-      app.get('*', (req, res, next) => {
-        if (req.url.startsWith('/api')) return next();
-        res.sendFile(path.join(distPath, 'index.html'));
-      });
+  // Static file serving logic
+  const possibleDistPaths = [
+    path.join(process.cwd(), 'dist'),
+    path.join(__dirname, 'dist'),
+    path.join(__dirname, '../dist'),
+    path.join(process.cwd(), 'public_html/dist'),
+    process.cwd() // Fallback to current directory if index.html is there
+  ];
+
+  let distPath = '';
+  for (const p of possibleDistPaths) {
+    if (fs.existsSync(path.join(p, 'index.html'))) {
+      distPath = p;
+      console.log(`Found static assets at: ${distPath}`);
+      break;
     }
+  }
+
+  if (distPath) {
+    app.use(express.static(distPath));
+    app.get('*', (req, res, next) => {
+      if (req.url.startsWith('/api')) return next();
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    if (fs.existsSync(distPath)) {
-      app.use(express.static(distPath));
-      app.get('*', (req, res, next) => {
-        if (req.url.startsWith('/api')) return next();
-        res.sendFile(path.join(distPath, 'index.html'));
-      });
-    } else {
-      console.warn('Production mode but dist folder not found. Serving API only.');
-      app.get('*', (req, res) => {
-        if (req.url.startsWith('/api')) {
-          res.status(404).json({ error: 'API route not found' });
-        } else {
-          res.status(404).send('Application not built. Please run npm run build.');
-        }
-      });
-    }
+    console.warn('Production mode but dist folder not found. Serving API only.');
+    app.get('*', (req, res) => {
+      if (req.url.startsWith('/api')) {
+        res.status(404).json({ error: 'API route not found' });
+      } else {
+        res.status(404).send('Application not built. Please run npm run build.');
+      }
+    });
   }
 
   // Global error handler

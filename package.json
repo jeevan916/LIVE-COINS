@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "start": "node --experimental-strip-types server.ts",
-    "build": "vite build",
+    "start": "node dist/server.js",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --target=node20 --outfile=dist/server.js --format=esm --external:fsevents --external:vite",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
@@ -16,6 +16,7 @@
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "dotenv": "^17.2.3",
+    "esbuild": "^0.27.4",
     "express": "^4.21.2",
     "lucide-react": "^0.546.0",
     "motion": "^12.38.0",
