@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLiveRates, RateItem } from '../useLiveRates';
 import { useAppConfig } from '../useAppConfig';
-import { Settings, RefreshCw, AlertCircle, Eye, EyeOff, LogOut, Key, Trash2, Plus } from 'lucide-react';
+import { Settings, RefreshCw, AlertCircle, Eye, EyeOff, LogOut, Key, Trash2, Plus, Database } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { PriceFlash } from '../components/PriceFlash';
@@ -11,7 +11,28 @@ export default function AdminView() {
   const { config, updateConfig, loading } = useAppConfig();
   const [showSettings, setShowSettings] = useState(true);
   const [newKey, setNewKey] = useState('');
+  const [dbStatus, setDbStatus] = useState<{ connected: boolean; error?: string; code?: string } | null>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const res = await fetch('/api/health');
+        const data = await res.json();
+        setDbStatus({ 
+          connected: data.dbConnected, 
+          error: data.error,
+          code: data.code
+        });
+      } catch (err) {
+        setDbStatus({ connected: false, error: 'Failed to reach health endpoint' });
+      }
+    };
+
+    checkHealth();
+    const interval = setInterval(checkHealth, 30000); // Check every 30s
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('eliteGoldAdminAuth');
@@ -152,6 +173,16 @@ export default function AdminView() {
           </div>
           <div className="flex items-center gap-4">
             <div className="flex flex-col items-end gap-2">
+              {dbStatus && (
+                <div className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium border ${
+                  dbStatus.connected 
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                    : 'bg-red-500/10 text-red-400 border-red-500/20'
+                }`}>
+                  <Database className="w-3 h-3" />
+                  {dbStatus.connected ? 'DB Connected' : 'DB Error'}
+                </div>
+              )}
               <div className="flex items-center gap-2 rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-medium text-emerald-400 border border-emerald-500/20">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
@@ -272,6 +303,20 @@ export default function AdminView() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {dbStatus && !dbStatus.connected && (
+          <div className="mb-8 flex flex-col gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-red-400">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-5 w-5 flex-shrink-0" />
+              <p className="text-sm font-bold">CRITICAL: Database Connection Failed</p>
+            </div>
+            <div className="ml-8 text-xs font-mono opacity-80">
+              <p>Error: {dbStatus.error}</p>
+              {dbStatus.code && <p>Code: {dbStatus.code}</p>}
+              <p className="mt-2 text-zinc-400">Tip: Check your DB_HOST, DB_USER, and DB_PASSWORD in Hostinger's Node.js settings.</p>
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="mb-8 flex items-center gap-3 rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-red-400">

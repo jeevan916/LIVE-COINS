@@ -180,12 +180,28 @@ async function startServer() {
     next();
   });
 
-  apiRouter.get('/health', (req, res) => {
-    res.json({ 
-      status: 'ok', 
-      timestamp: new Date().toISOString(),
-      dbConnected: pool !== null
-    });
+  apiRouter.get('/health', async (req, res) => {
+    try {
+      // Perform a real query to test the connection
+      await pool.query('SELECT 1');
+      res.json({ 
+        status: 'ok', 
+        timestamp: new Date().toISOString(),
+        dbConnected: true,
+        dbStatus: 'connected',
+        environment: process.env.NODE_ENV || 'production'
+      });
+    } catch (error: any) {
+      console.error('Database health check failed:', error);
+      res.status(500).json({ 
+        status: 'error', 
+        timestamp: new Date().toISOString(),
+        dbConnected: false,
+        dbStatus: 'error',
+        error: error.message,
+        code: error.code
+      });
+    }
   });
 
   apiRouter.get('/settings', async (req, res) => {
