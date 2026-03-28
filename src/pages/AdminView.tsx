@@ -95,12 +95,8 @@ export default function AdminView() {
                   const isVisible = config.itemVisibility[rate.id] ?? true;
                   const baseCommPerGram = type === 'gold' ? config.goldCommPerGram : config.silverCommPerGram;
                   
-                  const itemCommPerGram = config.itemCommissions[rate.id] !== undefined 
-                    ? config.itemCommissions[rate.id] 
-                    : baseCommPerGram;
-
-                  const totalCommission = itemCommPerGram * rate.weight;
-                  const finalAsk = rate.ask + totalCommission;
+                  const baseAsk = rate.rawAsk ?? rate.ask;
+                  const finalAsk = rate.ask;
 
                   return (
                     <motion.tr
@@ -117,7 +113,7 @@ export default function AdminView() {
                         )}
                       </td>
                       <td className="px-4 py-4 text-right text-zinc-500">
-                        ₹{rate.ask.toLocaleString('en-IN')}
+                        ₹{baseAsk.toLocaleString('en-IN')}
                       </td>
                       <td className="px-4 py-4 text-right">
                         <PriceFlash price={finalAsk} defaultColor="text-red-400" />

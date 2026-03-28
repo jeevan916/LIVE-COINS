@@ -40,6 +40,11 @@ console.log('DB Host:', process.env.DB_HOST);
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
+const httpServer = http.createServer(app);
+const io = new Server(httpServer, {
+  cors: { origin: '*' }
+});
+
 // SUPER DEBUG ROUTE - MUST BE AT THE VERY TOP
 app.get('/super-debug', (req, res) => {
   try {
@@ -307,6 +312,9 @@ async function startServer() {
         JSON.stringify(newSettings.socketKeys || [])
       ]);
       
+      // Broadcast to all clients that config has changed
+      io.emit('config_updated');
+      
       res.json({ success: true });
     } catch (error) {
       console.error('Error updating settings:', error);
@@ -386,11 +394,6 @@ async function startServer() {
     console.error('Database initialization failed:', err);
   });
 
-  const httpServer = http.createServer(app);
-  const io = new Server(httpServer, {
-    cors: { origin: '*' }
-  });
-
   // Authentication middleware for Socket.io
   io.use(async (socket, next) => {
     const token = socket.handshake.auth.token;
@@ -437,6 +440,8 @@ async function startServer() {
               const totalCommission = itemCommPerGram * r.weight;
               return {
                 ...r,
+                rawAsk: r.ask,
+                rawBid: r.bid,
                 ask: r.ask + totalCommission,
                 bid: r.bid + totalCommission,
                 high: r.high + totalCommission,

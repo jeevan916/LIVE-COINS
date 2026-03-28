@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
+import { io, Socket } from 'socket.io-client';
 
 export interface RateItem {
   id: string;
   name: string;
   bid: number;
   ask: number;
+  rawBid?: number;
+  rawAsk?: number;
   high: number;
   low: number;
   weight: number;
@@ -18,80 +21,38 @@ export function useLiveRates() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   useEffect(() => {
-    let isMounted = true;
-
-    const fetchRates = async () => {
-      try {
-        const [goldRes, silverRes] = await Promise.all([
-          fetch('https://bcast.elitegold.net:7768/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/elite'),
-          fetch('https://bcast.elitegold.net:7768/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/elitesilvercoin')
-        ]);
-
-        if (!goldRes.ok || !silverRes.ok) {
-          const gText = await goldRes.text();
-          const sText = await silverRes.text();
-          throw new Error(`Failed to fetch rates: Gold ${goldRes.status} - ${gText.substring(0, 50)}, Silver ${silverRes.status} - ${sText.substring(0, 50)}`);
-        }
-
-        const goldText = await goldRes.text();
-        const silverText = await silverRes.text();
-
-        if (isMounted) {
-          setGoldRates(parseRates(goldText, 'gold'));
-          setSilverRates(parseRates(silverText, 'silver'));
-          setLastUpdated(new Date());
-          setError(null);
-        }
-      } catch (err) {
-        if (isMounted) {
-          setError(err instanceof Error ? err.message : 'Unknown error');
-        }
+    // Connect to the same host that served the page
+    const socket: Socket = io({
+      auth: {
+        token: localStorage.getItem('eliteGoldSocketToken') || ''
       }
-    };
+    });
 
-    fetchRates();
-    const interval = setInterval(fetchRates, 2000);
+    socket.on('connect', () => {
+      console.log('Connected to live rates socket');
+      setError(null);
+    });
+
+    socket.on('rates', (data: { goldRates: RateItem[]; silverRates: RateItem[]; timestamp: string }) => {
+      setGoldRates(data.goldRates);
+      setSilverRates(data.silverRates);
+      setLastUpdated(new Date(data.timestamp));
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error('Socket connection error:', err);
+      setError(`Connection error: ${err.message}`);
+    });
+
+    socket.on('error', (err) => {
+      console.error('Socket error:', err);
+      setError(`Socket error: ${err.message}`);
+    });
 
     return () => {
-      isMounted = false;
-      clearInterval(interval);
+      socket.disconnect();
     };
   }, []);
 
   return { goldRates, silverRates, error, lastUpdated };
-}
-
-function extractWeight(name: string): number {
-  // Matches patterns like "50gm", "1 KG", "200mg", "0.5gm", "1g"
-  const match = name.match(/(\d+(?:\.\d+)?)\s*(kg|gm|g|mg)/i);
-  if (match) {
-    const val = parseFloat(match[1]);
-    const unit = match[2].toLowerCase();
-    if (unit === 'kg') return val * 1000;
-    if (unit === 'mg') return val / 1000;
-    return val; // g or gm
-  }
-  return 1; // Default to 1 multiplier if no weight is found in the name
-}
-
-function parseRates(text: string, type: 'gold' | 'silver'): RateItem[] {
-  const lines = text.split('\n').filter(line => line.trim() !== '');
-  return lines.map(line => {
-    const parts = line.split('\t');
-    let name = parts[2] || '';
-    
-    // Remove specific unwanted text
-    name = name.replace('(Min.2 Pc.)', '').trim();
-    
-    return {
-      id: parts[1],
-      name: name,
-      bid: parseFloat(parts[3]) || 0,
-      ask: parseFloat(parts[4]) || 0,
-      high: parseFloat(parts[5]) || 0,
-      low: parseFloat(parts[6]) || 0,
-      weight: extractWeight(name),
-      type
-    };
-  }).filter(item => item.id && item.name);
 }

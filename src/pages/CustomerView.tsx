@@ -31,14 +31,6 @@ export default function CustomerView() {
             <tbody className="divide-y divide-white/5">
               <AnimatePresence>
                 {visibleRates.map((rate) => {
-                  const baseCommPerGram = type === 'gold' ? config.goldCommPerGram : config.silverCommPerGram;
-                  const itemCommPerGram = config.itemCommissions[rate.id] !== undefined 
-                    ? config.itemCommissions[rate.id] 
-                    : baseCommPerGram;
-
-                  const totalCommission = itemCommPerGram * rate.weight;
-                  const finalAsk = rate.ask + totalCommission;
-
                   return (
                     <motion.tr
                       key={rate.id}
@@ -51,7 +43,7 @@ export default function CustomerView() {
                         {rate.name}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <PriceFlash price={finalAsk} defaultColor="text-emerald-400" />
+                        <PriceFlash price={rate.ask} defaultColor="text-emerald-400" />
                       </td>
                     </motion.tr>
                   );

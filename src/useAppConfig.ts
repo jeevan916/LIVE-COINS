@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { io, Socket } from 'socket.io-client';
 
 export interface AppConfig {
   goldCommPerGram: number;
@@ -21,50 +22,48 @@ export function useAppConfig() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  if (error) {
-    throw error;
-  }
+  const fetchConfig = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/settings?t=${Date.now()}`);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Failed to fetch settings: ${res.status} ${res.statusText} - ${text.substring(0, 100)}`);
+      }
+      
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+         const text = await res.text();
+         throw new Error(`Expected JSON but received ${contentType}: ${text.substring(0, 100)}`);
+      }
+
+      const data = await res.json();
+      setConfig({ ...defaultConfig, ...data });
+      setLoading(false);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error(String(err)));
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let isMounted = true;
-    
-    const fetchConfig = async () => {
-      try {
-        const res = await fetch(`/api/settings?t=${Date.now()}`);
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(`Failed to fetch settings: ${res.status} ${res.statusText} - ${text.substring(0, 100)}`);
-        }
-        
-        const contentType = res.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-           const text = await res.text();
-           throw new Error(`Expected JSON but received ${contentType}: ${text.substring(0, 100)}`);
-        }
-
-        const data = await res.json();
-        if (isMounted) {
-          setConfig({ ...defaultConfig, ...data });
-          setLoading(false);
-        }
-      } catch (err) {
-        if (isMounted) {
-          setError(err instanceof Error ? err : new Error(String(err)));
-          setLoading(false);
-        }
-      }
-    };
-
     fetchConfig();
+
+    // Setup real-time updates via Socket.IO
+    const socket: Socket = io();
     
-    // Poll for updates every 5 seconds to keep it somewhat real-time
-    const interval = setInterval(fetchConfig, 5000);
+    socket.on('config_updated', () => {
+      console.log('Config updated event received, refetching...');
+      fetchConfig();
+    });
+
+    // Still keep a slow poll as fallback (every 30 seconds instead of 5)
+    const interval = setInterval(fetchConfig, 30000);
 
     return () => {
-      isMounted = false;
       clearInterval(interval);
+      socket.disconnect();
     };
-  }, []);
+  }, [fetchConfig]);
 
   const updateConfig = async (updates: Partial<AppConfig>) => {
     const newConfig = { ...config, ...updates };
