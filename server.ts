@@ -470,11 +470,11 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const possibleDistPaths = [
-      process.cwd(), // If server.js is in public_html with index.html
-      path.join(process.cwd(), 'dist'),
-      path.join(__dirname, '.'),
-      path.join(__dirname, 'dist'),
-      path.join(process.cwd(), 'public_html')
+      path.join(process.cwd(), 'client'),
+      path.join(process.cwd(), 'dist', 'client'),
+      path.join(__dirname, 'client'),
+      path.join(__dirname, 'dist', 'client'),
+      process.cwd()
     ];
 
     let distPath = '';
