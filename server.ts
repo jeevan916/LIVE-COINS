@@ -33,6 +33,12 @@ dotenv.config();
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
+// Global request logger - MUST be first
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
 app.use(express.json());
 
 // Initialize MySQL
@@ -144,8 +150,14 @@ async function getSettingsFromDB() {
 }
 
 async function startServer() {
+  console.log(`Starting server in ${process.env.NODE_ENV || 'development'} mode...`);
+  
   // API Router definition
   const apiRouter = express.Router();
+
+  // Mount API Router IMMEDIATELY
+  console.log('Mounting /api router...');
+  app.use('/api', apiRouter);
 
   apiRouter.use((req, res, next) => {
     console.log(`[API Request] ${req.method} ${req.url}`);
@@ -273,10 +285,6 @@ async function startServer() {
     res.status(404).json({ error: `API route not found: ${req.method} ${req.url}` });
   });
 
-  // Mount API Router EARLY
-  console.log('Mounting /api router...');
-  app.use('/api', apiRouter);
-
   // Initialize DB in background
   initDB().then(() => {
     console.log('Database initialization complete');
@@ -287,14 +295,6 @@ async function startServer() {
   const httpServer = http.createServer(app);
   const io = new Server(httpServer, {
     cors: { origin: '*' }
-  });
-
-  // Request logging middleware for non-API requests
-  app.use((req, res, next) => {
-    if (!req.url.startsWith('/api')) {
-      console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-    }
-    next();
   });
 
   // Authentication middleware for Socket.io
