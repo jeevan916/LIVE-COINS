@@ -51,9 +51,14 @@ export class ErrorBoundary extends React.Component<Props, State> {
               We encountered a problem while running the application.
             </p>
             <div className="bg-zinc-950 p-4 rounded-lg border border-white/5 overflow-auto">
-              <code className="text-sm text-red-400 font-mono">
+              <code className="text-sm text-red-400 font-mono whitespace-pre-wrap break-all">
                 {errorMessage}
               </code>
+              {errorMessage.includes('fetch') && (
+                <p className="mt-2 text-xs text-zinc-500 italic">
+                  Tip: If you see HTML code above, it means the server returned a web page instead of data. This usually happens when the API path is misconfigured in Hostinger.
+                </p>
+              )}
             </div>
             <button
               onClick={() => window.location.reload()}

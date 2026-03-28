@@ -30,8 +30,36 @@ for (const envPath of possibleEnvPaths) {
 // Fallback to standard .env in the root if the above doesn't exist
 dotenv.config();
 
+console.log('--- SERVER STARTING ---');
+console.log('Time:', new Date().toISOString());
+console.log('CWD:', process.cwd());
+console.log('Dirname:', __dirname);
+console.log('Env Port:', process.env.PORT);
+console.log('DB Host:', process.env.DB_HOST);
+
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
+
+// SUPER DEBUG ROUTE - MUST BE AT THE VERY TOP
+app.get('/super-debug', (req, res) => {
+  try {
+    const files = fs.readdirSync(process.cwd());
+    res.send(`
+      <h1>NODE.JS IS REACHABLE!</h1>
+      <p>Time: ${new Date().toISOString()}</p>
+      <p>Port: ${PORT}</p>
+      <p>CWD: ${process.cwd()}</p>
+      <p>Files in CWD: ${files.join(', ')}</p>
+    `);
+  } catch (err: any) {
+    res.send(`<h1>NODE.JS IS REACHABLE!</h1><p>Error reading files: ${err.message}</p>`);
+  }
+});
+
+// Heartbeat to keep logs active and verify life
+setInterval(() => {
+  console.log(`[Heartbeat] Server is alive on port ${PORT} - ${new Date().toISOString()}`);
+}, 30000);
 
 // API Router definition - Define it early
 const apiRouter = express.Router();
@@ -49,7 +77,18 @@ app.use('/api', apiRouter);
 
 // Diagnostic route at the root level
 app.get('/health-check', (req, res) => {
-  res.send(`Server is running on port ${PORT}. NODE_ENV: ${process.env.NODE_ENV}`);
+  res.json({
+    status: 'online',
+    port: PORT,
+    env: process.env.NODE_ENV,
+    cwd: process.cwd(),
+    dirname: __dirname,
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.get('/test-node', (req, res) => {
+  res.send('<h1>Node.js is successfully handling requests!</h1>');
 });
 
 // Initialize MySQL
@@ -180,6 +219,13 @@ async function startServer() {
     next();
   });
 
+  apiRouter.get('/', (req, res) => {
+    res.json({ 
+      message: 'API is alive and reachable',
+      timestamp: new Date().toISOString()
+    });
+  });
+
   apiRouter.get('/health', async (req, res) => {
     try {
       // Perform a real query to test the connection
@@ -204,8 +250,27 @@ async function startServer() {
     }
   });
 
-  apiRouter.get('/settings', async (req, res) => {
+  apiRouter.get('/env-debug', (req, res) => {
+    const safeEnv = { ...process.env };
+    // Remove sensitive data
+    delete safeEnv.DB_PASSWORD;
+    delete safeEnv.DB_USER;
+    delete safeEnv.SOCKET_SECRET_KEY;
+    delete safeEnv.GEMINI_API_KEY;
+    
+    res.json({
+      message: 'Environment Debug Info',
+      port: PORT,
+      nodeVersion: process.version,
+      env: safeEnv,
+      cwd: process.cwd(),
+      dirname: __dirname
+    });
+  });
+
+  apiRouter.get(['/settings', '/settings/'], async (req, res) => {
     try {
+      console.log('Fetching settings from DB...');
       const settings = await getSettingsFromDB();
       res.json(settings);
     } catch (error) {
@@ -405,11 +470,11 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const possibleDistPaths = [
+      process.cwd(), // If server.js is in public_html with index.html
       path.join(process.cwd(), 'dist'),
-      path.join(__dirname, '.'), // Since server.js is in dist/
+      path.join(__dirname, '.'),
       path.join(__dirname, 'dist'),
-      path.join(__dirname, '../dist'),
-      path.join(process.cwd(), 'public_html/dist')
+      path.join(process.cwd(), 'public_html')
     ];
 
     let distPath = '';
