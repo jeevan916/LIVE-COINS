@@ -16,7 +16,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install dependencies
         run: npm install
@@ -27,11 +27,13 @@ jobs:
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
+          server: 72.61.175.20
+          username: u477692720.coins.sanghavijewellers.com
+          password: ${{ secrets.FTP_PASSWORD || 'Jaímata@916' }}
           local-dir: ./dist/
           server-dir: public_html/
+          protocol: ftp
+          port: 21
           exclude: |
             **/.git*
             **/.git*/**

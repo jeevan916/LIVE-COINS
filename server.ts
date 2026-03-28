@@ -31,7 +31,7 @@ for (const envPath of possibleEnvPaths) {
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
@@ -40,18 +40,20 @@ const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'u477692720_jeevan999coin',
   password: process.env.DB_PASSWORD || 'jeevan@916$',
-  database: process.env.DB_NAME || 'u477692720_jeevan999coin'
+  database: process.env.DB_NAME || 'u477692720_jeevan999coin',
+  connectTimeout: 30000, // Increase to 30 seconds
 };
 
 console.log('Database Configuration:', {
   host: dbConfig.host,
   user: dbConfig.user,
   database: dbConfig.database,
-  hasPassword: !!dbConfig.password
+  hasPassword: !!dbConfig.password,
+  port: PORT
 });
 
 if (dbConfig.host === 'localhost') {
-  console.warn('WARNING: DB_HOST is set to localhost. On Hostinger, this usually needs to be the MySQL host provided in hPanel (e.g., mysql.hostinger.com).');
+  console.warn('WARNING: DB_HOST is set to localhost. On Hostinger, if you get ETIMEDOUT, try using 127.0.0.1 or the specific MySQL host from hPanel.');
 }
 
 const pool = mysql.createPool({
@@ -59,7 +61,6 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  connectTimeout: 15000, // 15 seconds timeout
   enableKeepAlive: true,
   keepAliveInitialDelay: 10000
 });
