@@ -84,6 +84,7 @@ const pool = mysql.createPool({
 
 async function initDB() {
   try {
+    // 1. Create the table if it doesn't exist
     await pool.query(`
       CREATE TABLE IF NOT EXISTS settings (
         id INT PRIMARY KEY,
@@ -94,9 +95,17 @@ async function initDB() {
         socketKeys JSON
       )
     `);
-    console.log('Database initialized successfully');
+    
+    // 2. Ensure at least one default row exists so SELECT doesn't return empty
+    await pool.query(`
+      INSERT IGNORE INTO settings (id, goldCommPerGram, silverCommPerGram, itemCommissions, itemVisibility, socketKeys)
+      VALUES (1, 0, 0, '{}', '{}', '[]')
+    `);
+    
+    console.log('Database initialized and seeded successfully');
   } catch (error) {
     console.error('Failed to initialize database:', error);
+    // We don't throw here so the server can still start with hardcoded defaults
   }
 }
 
