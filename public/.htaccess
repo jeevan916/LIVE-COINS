@@ -1,0 +1,15 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  
+  # 1. If the request is for /api, let the Node.js app handle it.
+  # On Hostinger, the Node.js manager usually proxies everything, 
+  # but if Apache is intercepting, this ensures we don't rewrite it.
+  RewriteCond %{REQUEST_URI} ^/api/
+  RewriteRule ^api/(.*)$ - [L]
+
+  # 2. For SPA: If the requested resource doesn't exist, serve index.html
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>

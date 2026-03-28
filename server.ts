@@ -33,6 +33,9 @@ dotenv.config();
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
+// API Router definition - Define it early
+const apiRouter = express.Router();
+
 // Global request logger - MUST be first
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
@@ -40,6 +43,14 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
+
+// Mount API Router EARLY at the top level
+app.use('/api', apiRouter);
+
+// Diagnostic route at the root level
+app.get('/health-check', (req, res) => {
+  res.send(`Server is running on port ${PORT}. NODE_ENV: ${process.env.NODE_ENV}`);
+});
 
 // Initialize MySQL
 const dbConfig = {
@@ -150,15 +161,8 @@ async function getSettingsFromDB() {
 }
 
 async function startServer() {
-  console.log(`Starting server in ${process.env.NODE_ENV || 'development'} mode...`);
+  console.log(`Starting server in ${process.env.NODE_ENV || 'production'} mode...`);
   
-  // API Router definition
-  const apiRouter = express.Router();
-
-  // Mount API Router IMMEDIATELY
-  console.log('Mounting /api router...');
-  app.use('/api', apiRouter);
-
   apiRouter.use((req, res, next) => {
     console.log(`[API Request] ${req.method} ${req.url}`);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -363,10 +367,11 @@ async function startServer() {
   }, 2000);
 
   // Static file serving logic
-  const isDev = process.env.NODE_ENV !== 'production' || !fs.existsSync(path.join(process.cwd(), 'dist/index.html'));
+  // On Hostinger, we want to default to production unless explicitly told otherwise
+  const isDev = process.env.NODE_ENV === 'development';
   
   if (isDev) {
-    console.log('Vite middleware integrated for development (isDev=true)');
+    console.log('Vite middleware integrated for development mode');
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -376,6 +381,7 @@ async function startServer() {
   } else {
     const possibleDistPaths = [
       path.join(process.cwd(), 'dist'),
+      path.join(__dirname, '.'), // Since server.js is in dist/
       path.join(__dirname, 'dist'),
       path.join(__dirname, '../dist'),
       path.join(process.cwd(), 'public_html/dist')
