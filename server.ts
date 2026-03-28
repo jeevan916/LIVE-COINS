@@ -363,21 +363,22 @@ async function startServer() {
   }, 2000);
 
   // Static file serving logic
-  if (process.env.NODE_ENV !== 'production') {
+  const isDev = process.env.NODE_ENV !== 'production' || !fs.existsSync(path.join(process.cwd(), 'dist/index.html'));
+  
+  if (isDev) {
+    console.log('Vite middleware integrated for development (isDev=true)');
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
-    console.log('Vite middleware integrated for development');
   } else {
     const possibleDistPaths = [
       path.join(process.cwd(), 'dist'),
       path.join(__dirname, 'dist'),
       path.join(__dirname, '../dist'),
-      path.join(process.cwd(), 'public_html/dist'),
-      process.cwd() // Fallback to current directory if index.html is there
+      path.join(process.cwd(), 'public_html/dist')
     ];
 
     let distPath = '';
