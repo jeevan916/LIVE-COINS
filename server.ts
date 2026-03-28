@@ -474,6 +474,7 @@ async function startServer() {
       path.join(process.cwd(), 'dist', 'client'),
       path.join(__dirname, 'client'),
       path.join(__dirname, 'dist', 'client'),
+      path.join(process.cwd(), 'public_html', 'client'),
       process.cwd()
     ];
 
