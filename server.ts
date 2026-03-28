@@ -31,7 +31,7 @@ for (const envPath of possibleEnvPaths) {
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json());
 
@@ -274,6 +274,7 @@ async function startServer() {
   });
 
   // Mount API Router EARLY
+  console.log('Mounting /api router...');
   app.use('/api', apiRouter);
 
   // Initialize DB in background
@@ -362,38 +363,48 @@ async function startServer() {
   }, 2000);
 
   // Static file serving logic
-  const possibleDistPaths = [
-    path.join(process.cwd(), 'dist'),
-    path.join(__dirname, 'dist'),
-    path.join(__dirname, '../dist'),
-    path.join(process.cwd(), 'public_html/dist'),
-    process.cwd() // Fallback to current directory if index.html is there
-  ];
-
-  let distPath = '';
-  for (const p of possibleDistPaths) {
-    if (fs.existsSync(path.join(p, 'index.html'))) {
-      distPath = p;
-      console.log(`Found static assets at: ${distPath}`);
-      break;
-    }
-  }
-
-  if (distPath) {
-    app.use(express.static(distPath));
-    app.get('*', (req, res, next) => {
-      if (req.url.startsWith('/api')) return next();
-      res.sendFile(path.join(distPath, 'index.html'));
+  if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
     });
+    app.use(vite.middlewares);
+    console.log('Vite middleware integrated for development');
   } else {
-    console.warn('Production mode but dist folder not found. Serving API only.');
-    app.get('*', (req, res) => {
-      if (req.url.startsWith('/api')) {
-        res.status(404).json({ error: 'API route not found' });
-      } else {
-        res.status(404).send('Application not built. Please run npm run build.');
+    const possibleDistPaths = [
+      path.join(process.cwd(), 'dist'),
+      path.join(__dirname, 'dist'),
+      path.join(__dirname, '../dist'),
+      path.join(process.cwd(), 'public_html/dist'),
+      process.cwd() // Fallback to current directory if index.html is there
+    ];
+
+    let distPath = '';
+    for (const p of possibleDistPaths) {
+      if (fs.existsSync(path.join(p, 'index.html'))) {
+        distPath = p;
+        console.log(`Found static assets at: ${distPath}`);
+        break;
       }
-    });
+    }
+
+    if (distPath) {
+      app.use(express.static(distPath));
+      app.get('*', (req, res, next) => {
+        if (req.url.startsWith('/api')) return next();
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    } else {
+      console.warn('Production mode but dist folder not found. Serving API only.');
+      app.get('*', (req, res) => {
+        if (req.url.startsWith('/api')) {
+          res.status(404).json({ error: 'API route not found' });
+        } else {
+          res.status(404).send('Application not built. Please run npm run build.');
+        }
+      });
+    }
   }
 
   // Global error handler

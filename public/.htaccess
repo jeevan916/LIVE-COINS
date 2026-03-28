@@ -1,9 +1,16 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+  
+  # If it's an API request, let the Node.js app handle it
+  # Hostinger's Node.js manager usually proxies everything to the app
+  # but this ensures we don't rewrite it to index.html
+  RewriteCond %{REQUEST_URI} ^/api/
+  RewriteRule ^api/(.*)$ - [L]
+
+  # For all other requests, if it's not a file or directory, serve index.html
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteCond %{REQUEST_URI} !^/api/
   RewriteRule . /index.html [L]
 </IfModule>
