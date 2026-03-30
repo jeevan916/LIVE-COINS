@@ -1,13 +1,91 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLiveRates, RateItem } from '../useLiveRates';
 import { useAppConfig } from '../useAppConfig';
-import { RefreshCw, AlertCircle } from 'lucide-react';
+import { RefreshCw, AlertCircle, TrendingUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PriceFlash } from '../components/PriceFlash';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+
+interface HistoricalRate {
+  type: string;
+  symbol: string;
+  bid: number;
+  ask: number;
+  timestamp: string;
+}
 
 export default function CustomerView() {
   const { goldRates, silverRates, error, lastUpdated } = useLiveRates();
   const { config, loading } = useAppConfig();
+  const [historicalData, setHistoricalData] = useState<HistoricalRate[]>([]);
+  const [fetchingHistory, setFetchingHistory] = useState(true);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const res = await fetch('/api/historical-rates');
+        if (res.ok) {
+          const data = await res.json();
+          setHistoricalData(data);
+        }
+      } catch (err) {
+        console.error('Error fetching historical rates:', err);
+      } finally {
+        setFetchingHistory(false);
+      }
+    };
+    fetchHistory();
+  }, []);
+
+  const renderHistoricalChart = () => {
+    if (fetchingHistory) return null;
+    if (historicalData.length === 0) return null;
+
+    // Process data for the chart
+    // We group by timestamp and have gold/silver values
+    const chartDataMap = new Map<string, any>();
+    historicalData.forEach(item => {
+      const date = new Date(item.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      if (!chartDataMap.has(date)) {
+        chartDataMap.set(date, { date });
+      }
+      const entry = chartDataMap.get(date);
+      if (item.type === 'gold') entry.gold = item.ask;
+      if (item.type === 'silver') entry.silver = item.ask;
+    });
+
+    const chartData = Array.from(chartDataMap.values());
+
+    return (
+      <div className="mb-8 overflow-hidden rounded-xl border border-white/10 bg-zinc-900/50 shadow-xl backdrop-blur-sm p-6">
+        <div className="mb-6 flex items-center gap-2">
+          <TrendingUp className="h-5 w-5 text-indigo-400" />
+          <h2 className="text-xl font-semibold text-zinc-100">Historical Rates (Last 7 Days)</h2>
+        </div>
+        <div className="h-[300px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <XAxis 
+                dataKey="date" 
+                stroke="#71717a" 
+                fontSize={10}
+                tickFormatter={(val) => val.split(',')[0]} // Show only date on X axis for clarity
+              />
+              <YAxis stroke="#71717a" fontSize={10} domain={['auto', 'auto']} />
+              <Tooltip 
+                contentStyle={{ backgroundColor: '#18181b', border: '1px solid #3f3f46', borderRadius: '8px' }}
+                itemStyle={{ fontSize: '12px' }}
+              />
+              <Legend />
+              <Line type="monotone" dataKey="gold" stroke="#fbbf24" name="Gold" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="silver" stroke="#94a3b8" name="Silver" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    );
+  };
 
   const renderTable = (title: string, rates: RateItem[], type: 'gold' | 'silver') => {
     if (loading) return null;
@@ -96,6 +174,7 @@ export default function CustomerView() {
 
         {(goldRates.length > 0 || silverRates.length > 0) && (
           <div className="space-y-8">
+            {renderHistoricalChart()}
             {renderTable('Gold', goldRates, 'gold')}
             {renderTable('Silver', silverRates, 'silver')}
           </div>

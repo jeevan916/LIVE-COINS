@@ -183,6 +183,18 @@ async function initDB() {
       VALUES (1, 0, 0, '{}', '{}', '[]')
     `);
     
+    // 3. Create historical_rates table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS historical_rates (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        type VARCHAR(20),
+        symbol VARCHAR(100),
+        bid DECIMAL(15, 4),
+        ask DECIMAL(15, 4),
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
     console.log('Database initialized and seeded successfully');
   } catch (error) {
     console.error('Failed to initialize database:', error);
@@ -250,9 +262,61 @@ async function getSettingsFromDB() {
   return defaultConfig;
 }
 
+async function saveHistoricalRates() {
+  try {
+    console.log('Saving historical rates...');
+    const [goldRes, silverRes] = await Promise.all([
+      fetch('https://bcast.elitegold.net:7768/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/elite'),
+      fetch('https://bcast.elitegold.net:7768/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/elitesilvercoin')
+    ]);
+
+    if (!goldRes.ok || !silverRes.ok) throw new Error('Failed to fetch rates for history');
+
+    const goldText = await goldRes.text();
+    const silverText = await silverRes.text();
+
+    const rawGoldRates = parseRates(goldText, 'gold');
+    const rawSilverRates = parseRates(silverText, 'silver');
+
+    // We only save the primary rates (usually the first ones or specific ones)
+    // For simplicity, let's save the first gold and first silver rate found
+    const goldToSave = rawGoldRates[0];
+    const silverToSave = rawSilverRates[0];
+
+    if (goldToSave) {
+      await pool.query(
+        'INSERT INTO historical_rates (type, symbol, bid, ask) VALUES (?, ?, ?, ?)',
+        ['gold', goldToSave.name, goldToSave.bid, goldToSave.ask]
+      );
+    }
+
+    if (silverToSave) {
+      await pool.query(
+        'INSERT INTO historical_rates (type, symbol, bid, ask) VALUES (?, ?, ?, ?)',
+        ['silver', silverToSave.name, silverToSave.bid, silverToSave.ask]
+      );
+    }
+    
+    console.log('Historical rates saved successfully');
+  } catch (error) {
+    console.error('Error saving historical rates:', error);
+  }
+}
+
+// Save historical rates every hour
+setInterval(saveHistoricalRates, 60 * 60 * 1000);
+
 async function startServer() {
   console.log(`Starting server in ${process.env.NODE_ENV || 'production'} mode...`);
   
+  await initDB();
+  
+  // Initial save of historical rates if table is empty
+  const [countRows] = await pool.query('SELECT COUNT(*) as count FROM historical_rates');
+  if ((countRows as any)[0].count === 0) {
+    await saveHistoricalRates();
+  }
+
   httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
   });
@@ -360,6 +424,22 @@ async function startServer() {
     } catch (error) {
       console.error('Error updating settings:', error);
       res.status(500).json({ error: 'Failed to update settings' });
+    }
+  });
+
+  apiRouter.get('/historical-rates', async (req, res) => {
+    try {
+      // Get rates from the last 7 days
+      const [rows] = await pool.query(`
+        SELECT type, symbol, bid, ask, timestamp 
+        FROM historical_rates 
+        WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        ORDER BY timestamp ASC
+      `);
+      res.json(rows);
+    } catch (error) {
+      console.error('Error fetching historical rates:', error);
+      res.status(500).json({ error: 'Failed to fetch historical rates' });
     }
   });
 
