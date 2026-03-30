@@ -7,56 +7,51 @@ import fs from 'fs';
 import mysql from 'mysql2/promise';
 import { fileURLToPath } from 'url';
 
-// Robust path handling for both ESM and CJS environments
-// We use a trick to hide import.meta from esbuild when bundling for CJS
-const getDirname = () => {
-  if (typeof __dirname !== 'undefined') return __dirname;
-  // @ts-ignore
-  return path.dirname(fileURLToPath(eval('import.meta.url')));
-};
-
-const getFilename = () => {
-  if (typeof __filename !== 'undefined') return __filename;
-  // @ts-ignore
-  return fileURLToPath(eval('import.meta.url'));
-};
-
-const _dirname = getDirname();
-const _filename = getFilename();
+// Robust path handling for native ESM
+const _filename = fileURLToPath(import.meta.url);
+const _dirname = path.dirname(_filename);
 
 // Try loading environment variables from the specific Hostinger path first
-const possibleEnvPaths = [
-  path.resolve(process.cwd(), 'public_html/.builds/config/.env'),
-  path.resolve(process.cwd(), '.builds/config/.env'),
-  path.resolve(process.cwd(), '../.builds/config/.env'),
-  path.resolve(_dirname, 'public_html/.builds/config/.env'),
-  path.resolve(_dirname, '../.builds/config/.env')
-];
+try {
+  const possibleEnvPaths = [
+    path.resolve(process.cwd(), 'public_html/.builds/config/.env'),
+    path.resolve(process.cwd(), '.builds/config/.env'),
+    path.resolve(process.cwd(), '../.builds/config/.env'),
+    path.resolve(_dirname, 'public_html/.builds/config/.env'),
+    path.resolve(_dirname, '../.builds/config/.env')
+  ];
 
-for (const envPath of possibleEnvPaths) {
-  if (fs.existsSync(envPath)) {
-    dotenv.config({ path: envPath });
-    console.log(`Loaded environment variables from ${envPath}`);
-    break;
+  for (const envPath of possibleEnvPaths) {
+    if (fs.existsSync(envPath)) {
+      dotenv.config({ path: envPath });
+      console.log(`Loaded environment variables from ${envPath}`);
+      break;
+    }
   }
+} catch (e) {
+  console.warn('Error checking env paths:', e);
 }
 
 // Fallback to standard .env in the root if the above doesn't exist
 dotenv.config();
 
-console.log('--- SERVER STARTING ---');
-console.log('Time:', new Date().toISOString());
-console.log('CWD:', process.cwd());
-console.log('Dirname:', _dirname);
-console.log('Env Port:', process.env.PORT);
-console.log('Available Env Keys:', Object.keys(process.env).filter(k => !k.includes('PASS') && !k.includes('SECRET')).join(', '));
-console.log('NODE_ENV:', process.env.NODE_ENV);
-console.log('DB Host:', process.env.DB_HOST);
-console.log('DB User:', process.env.DB_USER);
-console.log('DB Name:', process.env.DB_NAME);
-console.log('Files in CWD:', fs.readdirSync(process.cwd()).join(', '));
-if (fs.existsSync(path.join(process.cwd(), 'dist'))) {
-  console.log('Files in dist:', fs.readdirSync(path.join(process.cwd(), 'dist')).join(', '));
+try {
+  console.log('--- SERVER STARTING ---');
+  console.log('Time:', new Date().toISOString());
+  console.log('CWD:', process.cwd());
+  console.log('Dirname:', _dirname);
+  console.log('Env Port:', process.env.PORT);
+  console.log('Available Env Keys:', Object.keys(process.env).filter(k => !k.includes('PASS') && !k.includes('SECRET')).join(', '));
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log('DB Host:', process.env.DB_HOST);
+  console.log('DB User:', process.env.DB_USER);
+  console.log('DB Name:', process.env.DB_NAME);
+  console.log('Files in CWD:', fs.readdirSync(process.cwd()).join(', '));
+  if (fs.existsSync(path.join(process.cwd(), 'dist'))) {
+    console.log('Files in dist:', fs.readdirSync(path.join(process.cwd(), 'dist')).join(', '));
+  }
+} catch (e) {
+  console.warn('Error during startup diagnostic logging:', e);
 }
 
 const app = express();
