@@ -35,14 +35,22 @@ console.log('Time:', new Date().toISOString());
 console.log('CWD:', process.cwd());
 console.log('Dirname:', __dirname);
 console.log('Env Port:', process.env.PORT);
+console.log('NODE_ENV:', process.env.NODE_ENV);
 console.log('DB Host:', process.env.DB_HOST);
+console.log('DB User:', process.env.DB_USER);
+console.log('DB Name:', process.env.DB_NAME);
+console.log('Files in CWD:', fs.readdirSync(process.cwd()).join(', '));
+if (fs.existsSync(path.join(process.cwd(), 'dist'))) {
+  console.log('Files in dist:', fs.readdirSync(path.join(process.cwd(), 'dist')).join(', '));
+}
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
-  cors: { origin: '*' }
+  cors: { origin: '*' },
+  transports: ['websocket', 'polling']
 });
 
 // SUPER DEBUG ROUTE - MUST BE AT THE VERY TOP

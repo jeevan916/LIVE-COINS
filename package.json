@@ -8,12 +8,15 @@
     "dev": "tsx server.ts",
     "start": "node server.js || node dist/server.js",
     "build": "npm run build:client && npm run build:server",
-    "build:client": "vite build",
-    "build:server": "esbuild server.ts --bundle --platform=node --target=node20 --outfile=dist/server.js --format=esm --external:fsevents --external:vite --external:express --external:socket.io --external:mysql2 --external:dotenv && printf \"import './dist/server.js';\\n\" > server.js",
+    "build:client": "echo 'Building client...' && vite build",
+    "build:server": "echo 'Building server...' && esbuild server.ts --bundle --platform=node --target=node24 --outfile=dist/server.js --format=esm --external:fsevents --external:vite --external:express --external:socket.io --external:mysql2 --external:dotenv && node -e \"require('fs').writeFileSync('server.js', 'import \\'./dist/server.js\\';\\n')\"",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "prebuild": "mkdir -p dist",
     "lint": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",

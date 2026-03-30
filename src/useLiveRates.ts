@@ -25,7 +25,8 @@ export function useLiveRates() {
     const socket: Socket = io({
       auth: {
         token: localStorage.getItem('eliteGoldSocketToken') || ''
-      }
+      },
+      transports: ['websocket', 'polling']
     });
 
     socket.on('connect', () => {

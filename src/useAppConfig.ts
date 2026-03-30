@@ -49,7 +49,9 @@ export function useAppConfig() {
     fetchConfig();
 
     // Setup real-time updates via Socket.IO
-    const socket: Socket = io();
+    const socket: Socket = io({
+      transports: ['websocket', 'polling']
+    });
     
     socket.on('config_updated', () => {
       console.log('Config updated event received, refetching...');

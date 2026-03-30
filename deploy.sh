@@ -9,11 +9,17 @@ echo "Starting deployment at $(date)"
 echo "Current user: $(whoami)"
 echo "Node version: $(node -v)"
 echo "NPM version: $(npm -v)"
+echo "Memory info:"
+free -m || echo "free command not available"
+echo "Disk info:"
+df -h .
+echo "Current directory: $(pwd)"
 
 # 1. Install dependencies
 echo "Installing dependencies..."
 # Use --production=false to ensure devDependencies (like vite, esbuild) are installed for the build
 npm install --production=false
+npm prune
 
 # 2. Build the application
 echo "Building application..."
@@ -23,6 +29,11 @@ ls -la # Show files before build
 npm run build
 ls -la # Show files after build
 ls -la dist || true # Show dist content
+
+if [ ! -f "dist/server.js" ]; then
+  echo "ERROR: dist/server.js was not created!"
+  exit 1
+fi
 
 # 3. Restart the application (if using Phusion Passenger)
 echo "Restarting application..."
