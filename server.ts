@@ -74,7 +74,7 @@ try {
 }
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = process.env.PORT || 3000;
 
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
@@ -317,8 +317,8 @@ async function startServer() {
     await saveHistoricalRates();
   }
 
-  httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://0.0.0.0:${PORT}`);
+  httpServer.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
   });
   
   apiRouter.use((req, res, next) => {
