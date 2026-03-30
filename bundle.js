@@ -259,38 +259,6 @@ async function getSettingsFromDB() {
   }
   return defaultConfig;
 }
-async function saveHistoricalRates() {
-  try {
-    console.log("Saving historical rates...");
-    const [goldRes, silverRes] = await Promise.all([
-      (0, import_node_fetch.default)("https://bcast.elitegold.net:7768/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/elite"),
-      (0, import_node_fetch.default)("https://bcast.elitegold.net:7768/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/elitesilvercoin")
-    ]);
-    if (!goldRes.ok || !silverRes.ok) throw new Error("Failed to fetch rates for history");
-    const goldText = await goldRes.text();
-    const silverText = await silverRes.text();
-    const rawGoldRates = parseRates(goldText, "gold");
-    const rawSilverRates = parseRates(silverText, "silver");
-    const goldToSave = rawGoldRates[0];
-    const silverToSave = rawSilverRates[0];
-    if (goldToSave) {
-      await pool.query(
-        "INSERT INTO historical_rates (type, symbol, bid, ask) VALUES (?, ?, ?, ?)",
-        ["gold", goldToSave.name, goldToSave.bid, goldToSave.ask]
-      );
-    }
-    if (silverToSave) {
-      await pool.query(
-        "INSERT INTO historical_rates (type, symbol, bid, ask) VALUES (?, ?, ?, ?)",
-        ["silver", silverToSave.name, silverToSave.bid, silverToSave.ask]
-      );
-    }
-    console.log("Historical rates saved successfully");
-  } catch (error) {
-    console.error("Error saving historical rates:", error);
-  }
-}
-setInterval(saveHistoricalRates, 60 * 60 * 1e3);
 async function startServer() {
   console.log(`Starting server in ${process.env.NODE_ENV || "production"} mode...`);
   httpServer.listen(PORT, () => {
@@ -298,10 +266,6 @@ async function startServer() {
   });
   try {
     await initDB();
-    const [countRows] = await pool.query("SELECT COUNT(*) as count FROM historical_rates");
-    if (countRows[0].count === 0) {
-      await saveHistoricalRates();
-    }
   } catch (dbError) {
     console.error("CRITICAL: Database initialization failed on startup:", dbError);
   }
@@ -464,6 +428,16 @@ async function startServer() {
   }).catch((err) => {
     console.error("Database initialization failed:", err);
   });
+  io.use((socket, next) => {
+    const token = socket.handshake.auth.token;
+    const adminPass = process.env.DB_PASSWORD || "jeevan@916$";
+    if (token === adminPass) {
+      socket.join("admin_room");
+    } else {
+      socket.join("public_room");
+    }
+    next();
+  });
   setInterval(async () => {
     try {
       const [goldRes, silverRes] = await Promise.all([
@@ -476,8 +450,8 @@ async function startServer() {
         const rawGoldRates = parseRates(goldText, "gold");
         const rawSilverRates = parseRates(silverText, "silver");
         const config = await getSettingsFromDB();
-        const processRates = (rates, type) => {
-          return rates.filter((r) => config.itemVisibility[r.id] !== false).map((r) => {
+        const processRates = (rates, type, isAdmin) => {
+          return rates.filter((r) => isAdmin || config.itemVisibility[r.id] !== false).map((r) => {
             const baseCommPerGram = type === "gold" ? config.goldCommPerGram : config.silverCommPerGram;
             const itemCommPerGram = config.itemCommissions[r.id] !== void 0 ? config.itemCommissions[r.id] : baseCommPerGram;
             const totalCommission = itemCommPerGram * r.weight;
@@ -492,9 +466,14 @@ async function startServer() {
             };
           });
         };
-        io.emit("rates", {
-          goldRates: processRates(rawGoldRates, "gold"),
-          silverRates: processRates(rawSilverRates, "silver"),
+        io.to("public_room").emit("rates", {
+          goldRates: processRates(rawGoldRates, "gold", false),
+          silverRates: processRates(rawSilverRates, "silver", false),
+          timestamp: (/* @__PURE__ */ new Date()).toISOString()
+        });
+        io.to("admin_room").emit("rates", {
+          goldRates: processRates(rawGoldRates, "gold", true),
+          silverRates: processRates(rawSilverRates, "silver", true),
           timestamp: (/* @__PURE__ */ new Date()).toISOString()
         });
       }

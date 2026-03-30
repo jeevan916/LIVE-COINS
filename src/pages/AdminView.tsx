@@ -6,6 +6,37 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { PriceFlash } from '../components/PriceFlash';
 
+const BlurInput = ({ value, onChange, placeholder, className }: { value: number | string, onChange: (val: number | string) => void, placeholder?: string, className?: string }) => {
+  const [localValue, setLocalValue] = useState(value?.toString() || '');
+
+  useEffect(() => {
+    setLocalValue(value?.toString() || '');
+  }, [value]);
+
+  const handleBlur = () => {
+    if (localValue === '') {
+      onChange('');
+    } else {
+      const parsed = parseFloat(localValue);
+      if (!isNaN(parsed)) {
+        onChange(parsed);
+      }
+    }
+  };
+
+  return (
+    <input
+      type="number"
+      min="0"
+      value={localValue}
+      onChange={(e) => setLocalValue(e.target.value)}
+      onBlur={handleBlur}
+      placeholder={placeholder}
+      className={className}
+    />
+  );
+};
+
 export default function AdminView() {
   const { goldRates, silverRates, error, lastUpdated } = useLiveRates();
   const { config, updateConfig, loading } = useAppConfig();
@@ -119,23 +150,20 @@ export default function AdminView() {
                         <PriceFlash price={finalAsk} defaultColor="text-red-400" />
                       </td>
                       <td className="px-4 py-4 text-right">
-                        <input
-                          type="number"
-                          min="0"
-                          value={config.itemCommissions[rate.id] ?? ''}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (val === '') {
-                              const newComms = { ...config.itemCommissions };
-                              delete newComms[rate.id];
-                              updateConfig({ itemCommissions: newComms });
-                            } else {
-                              updateItemCommission(rate.id, parseFloat(val) || 0);
-                            }
-                          }}
-                          placeholder={baseCommPerGram.toString()}
-                          className="w-20 rounded-md border border-white/10 bg-zinc-800 px-2 py-1.5 text-right text-sm text-zinc-200 placeholder-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        />
+                      <BlurInput
+                        value={config.itemCommissions[rate.id] ?? ''}
+                        onChange={(val) => {
+                          if (val === '') {
+                            const newComms = { ...config.itemCommissions };
+                            delete newComms[rate.id];
+                            updateConfig({ itemCommissions: newComms });
+                          } else {
+                            updateItemCommission(rate.id, val as number);
+                          }
+                        }}
+                        placeholder={baseCommPerGram.toString()}
+                        className="w-20 rounded-md border border-white/10 bg-zinc-800 px-2 py-1.5 text-right text-sm text-zinc-200 placeholder-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
                       </td>
                       <td className="px-4 py-4 text-center">
                         <button
@@ -225,11 +253,9 @@ export default function AdminView() {
                   <label className="block text-sm font-medium text-indigo-200 mb-1">Gold Margin (per gram)</label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-zinc-400">₹</span>
-                    <input
-                      type="number"
-                      min="0"
+                    <BlurInput
                       value={config.goldCommPerGram || ''}
-                      onChange={(e) => updateConfig({ goldCommPerGram: parseFloat(e.target.value) || 0 })}
+                      onChange={(val) => updateConfig({ goldCommPerGram: val === '' ? 0 : (val as number) })}
                       placeholder="0"
                       className="w-full rounded-lg border border-indigo-500/30 bg-zinc-900/50 py-2 pl-8 pr-3 text-sm text-zinc-200 placeholder-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
@@ -239,11 +265,9 @@ export default function AdminView() {
                   <label className="block text-sm font-medium text-indigo-200 mb-1">Silver Margin (per gram)</label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-zinc-400">₹</span>
-                    <input
-                      type="number"
-                      min="0"
+                    <BlurInput
                       value={config.silverCommPerGram || ''}
-                      onChange={(e) => updateConfig({ silverCommPerGram: parseFloat(e.target.value) || 0 })}
+                      onChange={(val) => updateConfig({ silverCommPerGram: val === '' ? 0 : (val as number) })}
                       placeholder="0"
                       className="w-full rounded-lg border border-indigo-500/30 bg-zinc-900/50 py-2 pl-8 pr-3 text-sm text-zinc-200 placeholder-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />

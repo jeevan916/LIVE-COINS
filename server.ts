@@ -285,50 +285,6 @@ async function getSettingsFromDB() {
   return defaultConfig;
 }
 
-async function saveHistoricalRates() {
-  try {
-    console.log('Saving historical rates...');
-    const [goldRes, silverRes] = await Promise.all([
-      fetch('https://bcast.elitegold.net:7768/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/elite'),
-      fetch('https://bcast.elitegold.net:7768/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/elitesilvercoin')
-    ]);
-
-    if (!goldRes.ok || !silverRes.ok) throw new Error('Failed to fetch rates for history');
-
-    const goldText = await goldRes.text();
-    const silverText = await silverRes.text();
-
-    const rawGoldRates = parseRates(goldText, 'gold');
-    const rawSilverRates = parseRates(silverText, 'silver');
-
-    // We only save the primary rates (usually the first ones or specific ones)
-    // For simplicity, let's save the first gold and first silver rate found
-    const goldToSave = rawGoldRates[0];
-    const silverToSave = rawSilverRates[0];
-
-    if (goldToSave) {
-      await pool.query(
-        'INSERT INTO historical_rates (type, symbol, bid, ask) VALUES (?, ?, ?, ?)',
-        ['gold', goldToSave.name, goldToSave.bid, goldToSave.ask]
-      );
-    }
-
-    if (silverToSave) {
-      await pool.query(
-        'INSERT INTO historical_rates (type, symbol, bid, ask) VALUES (?, ?, ?, ?)',
-        ['silver', silverToSave.name, silverToSave.bid, silverToSave.ask]
-      );
-    }
-    
-    console.log('Historical rates saved successfully');
-  } catch (error) {
-    console.error('Error saving historical rates:', error);
-  }
-}
-
-// Save historical rates every hour
-setInterval(saveHistoricalRates, 60 * 60 * 1000);
-
 async function startServer() {
   console.log(`Starting server in ${process.env.NODE_ENV || 'production'} mode...`);
   
@@ -340,12 +296,6 @@ async function startServer() {
   // Initialize DB asynchronously without crashing the server if it fails
   try {
     await initDB();
-    
-    // Initial save of historical rates if table is empty
-    const [countRows] = await pool.query('SELECT COUNT(*) as count FROM historical_rates');
-    if ((countRows as any)[0].count === 0) {
-      await saveHistoricalRates();
-    }
   } catch (dbError) {
     console.error('CRITICAL: Database initialization failed on startup:', dbError);
     // We don't exit here, so the API can still return 500s or health check failures
@@ -546,6 +496,19 @@ async function startServer() {
     console.error('Database initialization failed:', err);
   });
 
+  // Socket middleware to separate admins and public users
+  io.use((socket, next) => {
+    const token = socket.handshake.auth.token;
+    const adminPass = process.env.DB_PASSWORD || 'jeevan@916$';
+    
+    if (token === adminPass) {
+      socket.join('admin_room');
+    } else {
+      socket.join('public_room');
+    }
+    next();
+  });
+
   // Broadcast live rates every 2 seconds
   setInterval(async () => {
     try {
@@ -562,9 +525,9 @@ async function startServer() {
         const rawSilverRates = parseRates(silverText, 'silver');
         const config = await getSettingsFromDB();
 
-        const processRates = (rates: any[], type: 'gold' | 'silver') => {
+        const processRates = (rates: any[], type: 'gold' | 'silver', isAdmin: boolean) => {
           return rates
-            .filter(r => config.itemVisibility[r.id] !== false)
+            .filter(r => isAdmin || config.itemVisibility[r.id] !== false)
             .map(r => {
               const baseCommPerGram = type === 'gold' ? config.goldCommPerGram : config.silverCommPerGram;
               const itemCommPerGram = config.itemCommissions[r.id] !== undefined 
@@ -584,9 +547,17 @@ async function startServer() {
             });
         };
 
-        io.emit('rates', {
-          goldRates: processRates(rawGoldRates, 'gold'),
-          silverRates: processRates(rawSilverRates, 'silver'),
+        // Broadcast to public users (filtered)
+        io.to('public_room').emit('rates', {
+          goldRates: processRates(rawGoldRates, 'gold', false),
+          silverRates: processRates(rawSilverRates, 'silver', false),
+          timestamp: new Date().toISOString()
+        });
+
+        // Broadcast to admin users (unfiltered)
+        io.to('admin_room').emit('rates', {
+          goldRates: processRates(rawGoldRates, 'gold', true),
+          silverRates: processRates(rawSilverRates, 'silver', true),
           timestamp: new Date().toISOString()
         });
       }

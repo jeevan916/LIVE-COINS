@@ -24,7 +24,7 @@ export function useLiveRates() {
     // Connect to the same host that served the page
     const socket: Socket = io({
       auth: {
-        token: localStorage.getItem('eliteGoldSocketToken') || ''
+        token: localStorage.getItem('eliteGoldAdminAuth') || ''
       },
       transports: ['websocket', 'polling']
     });
