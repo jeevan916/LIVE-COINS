@@ -1,6 +1,6 @@
 node_modules/
 build/
-dist/
+# dist/ (Removed so built files can be pushed to Hostinger)
 coverage/
 .DS_Store
 *.log

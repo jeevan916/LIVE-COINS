@@ -25,9 +25,16 @@ npm prune
 echo "Building application..."
 npm run clean || true
 ls -la # Show files before build
+
+# Force install dev dependencies just in case
+npm install vite esbuild typescript @vitejs/plugin-react @tailwindcss/vite --no-save
+
+# Run the build
 npm run build
 echo "Build command finished. Checking output..."
 ls -la # Show files after build
+ls -la dist/ || echo "dist folder not found!"
+ls -la dist/public/ || echo "dist/public folder not found!"
 
 if [ ! -f "bundle.js" ]; then
   echo "ERROR: bundle.js (root bundle) was not created! Build failed."
