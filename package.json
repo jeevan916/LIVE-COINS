@@ -2,14 +2,13 @@
   "name": "react-example",
   "private": true,
   "version": "0.0.0",
-  "type": "module",
   "main": "server.js",
   "scripts": {
     "dev": "tsx server.ts",
     "start": "node server.js",
     "build": "npm run build:client && npm run build:server",
     "build:client": "vite build",
-    "build:server": "esbuild server.ts --bundle --platform=node --target=node20 --outfile=server.js --format=esm --external:fsevents --external:vite --external:mysql2",
+    "build:server": "esbuild server.ts --bundle --platform=node --target=node20 --outfile=server.js --format=cjs --external:fsevents --external:vite --external:mysql2",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"

@@ -7,9 +7,26 @@ import fs from 'fs';
 import mysql from 'mysql2/promise';
 import { fileURLToPath } from 'url';
 
-// Robust path handling for native ESM
-const _filename = fileURLToPath(import.meta.url);
-const _dirname = path.dirname(_filename);
+// Robust path handling for both ESM and CJS environments
+let _filename: string;
+let _dirname: string;
+
+try {
+  // @ts-ignore - __filename is available in CJS
+  _filename = __filename;
+  // @ts-ignore - __dirname is available in CJS
+  _dirname = __dirname;
+} catch (e) {
+  // Fallback for ESM environments (like tsx)
+  try {
+    _filename = fileURLToPath(import.meta.url);
+    _dirname = path.dirname(_filename);
+  } catch (err) {
+    // Last resort fallback
+    _filename = process.argv[1] || '';
+    _dirname = process.cwd();
+  }
+}
 
 // Try loading environment variables from the specific Hostinger path first
 try {
@@ -18,7 +35,8 @@ try {
     path.resolve(process.cwd(), '.builds/config/.env'),
     path.resolve(process.cwd(), '../.builds/config/.env'),
     path.resolve(_dirname, 'public_html/.builds/config/.env'),
-    path.resolve(_dirname, '../.builds/config/.env')
+    path.resolve(_dirname, '../.builds/config/.env'),
+    path.resolve(_dirname, '.env')
   ];
 
   for (const envPath of possibleEnvPaths) {
@@ -40,6 +58,7 @@ try {
   console.log('Time:', new Date().toISOString());
   console.log('CWD:', process.cwd());
   console.log('Dirname:', _dirname);
+  console.log('Filename:', _filename);
   console.log('Env Port:', process.env.PORT);
   console.log('Available Env Keys:', Object.keys(process.env).filter(k => !k.includes('PASS') && !k.includes('SECRET')).join(', '));
   console.log('NODE_ENV:', process.env.NODE_ENV);
