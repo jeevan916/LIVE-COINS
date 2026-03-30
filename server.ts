@@ -496,20 +496,38 @@ async function startServer() {
     console.error('Database initialization failed:', err);
   });
 
-  // Socket middleware to separate admins and public users
-  io.use((socket, next) => {
+  let cachedSettings: any = null;
+  let lastSettingsFetch = 0;
+
+  async function getSettingsCached() {
+    const now = Date.now();
+    if (cachedSettings && (now - lastSettingsFetch < 5000)) {
+      return cachedSettings;
+    }
+    cachedSettings = await getSettingsFromDB();
+    lastSettingsFetch = now;
+    return cachedSettings;
+  }
+
+  // Socket connection handling
+  io.on('connection', (socket) => {
     const token = socket.handshake.auth.token;
     const adminPass = process.env.DB_PASSWORD || 'jeevan@916$';
     
     if (token === adminPass) {
       socket.join('admin_room');
+      console.log('Admin connected to socket');
     } else {
       socket.join('public_room');
+      console.log('Public user connected to socket');
     }
-    next();
+
+    socket.on('disconnect', () => {
+      console.log('User disconnected from socket');
+    });
   });
 
-  // Broadcast live rates every 2 seconds
+  // Broadcast live rates every 1 second for faster updates
   setInterval(async () => {
     try {
       const [goldRes, silverRes] = await Promise.all([
@@ -523,7 +541,7 @@ async function startServer() {
 
         const rawGoldRates = parseRates(goldText, 'gold');
         const rawSilverRates = parseRates(silverText, 'silver');
-        const config = await getSettingsFromDB();
+        const config = await getSettingsCached();
 
         const processRates = (rates: any[], type: 'gold' | 'silver', isAdmin: boolean) => {
           return rates
@@ -547,24 +565,26 @@ async function startServer() {
             });
         };
 
+        const timestamp = new Date().toISOString();
+
         // Broadcast to public users (filtered)
         io.to('public_room').emit('rates', {
           goldRates: processRates(rawGoldRates, 'gold', false),
           silverRates: processRates(rawSilverRates, 'silver', false),
-          timestamp: new Date().toISOString()
+          timestamp
         });
 
         // Broadcast to admin users (unfiltered)
         io.to('admin_room').emit('rates', {
           goldRates: processRates(rawGoldRates, 'gold', true),
           silverRates: processRates(rawSilverRates, 'silver', true),
-          timestamp: new Date().toISOString()
+          timestamp
         });
       }
     } catch (error) {
       console.error('Error fetching or broadcasting rates:', error);
     }
-  }, 2000);
+  }, 200);
 
   // Static file serving logic
   // On Hostinger, we want to default to production unless explicitly told otherwise

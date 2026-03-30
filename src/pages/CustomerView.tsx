@@ -56,7 +56,7 @@ export default function CustomerView() {
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         <header className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-white">Live Bullion Rates</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-white">Bullion Rates kalyan</h1>
             <p className="mt-1 text-sm text-zinc-400">Real-time gold and silver prices</p>
           </div>
           <div className="flex flex-col items-end gap-2">
