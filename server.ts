@@ -512,7 +512,7 @@ async function startServer() {
   });
 
   // Catch-all for /api/* to prevent fall-through to static serving
-  apiRouter.all('*', (req, res) => {
+  apiRouter.use((req, res) => {
     console.warn(`[API 404] ${req.method} ${req.url}`);
     res.status(404).json({ error: `API route not found: ${req.method} ${req.url}` });
   });
@@ -625,13 +625,15 @@ async function startServer() {
 
     if (distPath) {
       app.use(express.static(distPath));
-      app.get('*', (req, res, next) => {
+      app.use((req, res, next) => {
+        if (req.method !== 'GET') return next();
         if (req.url.startsWith('/api')) return next();
         res.sendFile(path.join(distPath, 'index.html'));
       });
     } else {
       console.warn('Production mode but dist folder not found. Serving API only.');
-      app.get('*', (req, res) => {
+      app.use((req, res, next) => {
+        if (req.method !== 'GET') return next();
         if (req.url.startsWith('/api')) {
           res.status(404).json({ error: 'API route not found' });
         } else {
