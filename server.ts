@@ -7,16 +7,27 @@ import fs from 'fs';
 import mysql from 'mysql2/promise';
 import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Robust path handling for both ESM and CJS environments
+let _filename: string;
+let _dirname: string;
+
+try {
+  // @ts-ignore - __filename is available in CJS
+  _filename = __filename;
+  // @ts-ignore - __dirname is available in CJS
+  _dirname = __dirname;
+} catch (e) {
+  _filename = fileURLToPath(import.meta.url);
+  _dirname = path.dirname(_filename);
+}
 
 // Try loading environment variables from the specific Hostinger path first
 const possibleEnvPaths = [
   path.resolve(process.cwd(), 'public_html/.builds/config/.env'),
   path.resolve(process.cwd(), '.builds/config/.env'),
   path.resolve(process.cwd(), '../.builds/config/.env'),
-  path.resolve(__dirname, 'public_html/.builds/config/.env'),
-  path.resolve(__dirname, '../.builds/config/.env')
+  path.resolve(_dirname, 'public_html/.builds/config/.env'),
+  path.resolve(_dirname, '../.builds/config/.env')
 ];
 
 for (const envPath of possibleEnvPaths) {
@@ -33,7 +44,7 @@ dotenv.config();
 console.log('--- SERVER STARTING ---');
 console.log('Time:', new Date().toISOString());
 console.log('CWD:', process.cwd());
-console.log('Dirname:', __dirname);
+console.log('Dirname:', _dirname);
 console.log('Env Port:', process.env.PORT);
 console.log('NODE_ENV:', process.env.NODE_ENV);
 console.log('DB Host:', process.env.DB_HOST);
@@ -95,7 +106,7 @@ app.get('/health-check', (req, res) => {
     port: PORT,
     env: process.env.NODE_ENV,
     cwd: process.cwd(),
-    dirname: __dirname,
+    dirname: _dirname,
     timestamp: new Date().toISOString()
   });
 });
@@ -489,9 +500,10 @@ async function startServer() {
     const possibleDistPaths = [
       path.join(process.cwd(), 'public'),
       path.join(process.cwd(), 'dist', 'public'),
-      path.join(__dirname, 'public'),
-      path.join(__dirname, 'dist', 'public'),
+      path.join(_dirname, 'public'),
+      path.join(_dirname, 'dist', 'public'),
       path.join(process.cwd(), 'public_html', 'public'),
+      path.join(process.cwd(), '..', 'public_html', 'public'),
       process.cwd()
     ];
 
@@ -533,4 +545,8 @@ async function startServer() {
   });
 }
 
-startServer();
+startServer().catch(err => {
+  console.error('CRITICAL STARTUP ERROR:', err);
+  fs.writeFileSync('startup-error.log', `${new Date().toISOString()}\n${err.stack || err.message}\n`);
+  process.exit(1);
+});

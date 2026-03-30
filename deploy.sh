@@ -26,15 +26,20 @@ echo "Building application..."
 npm run clean || true
 ls -la # Show files before build
 npm run build
+echo "Build command finished. Checking output..."
 ls -la # Show files after build
-ls -la dist || true # Show dist content
 
-if [ ! -f "dist/server.js" ]; then
-  echo "ERROR: dist/server.js was not created! Build failed."
+if [ ! -f "server.js" ]; then
+  echo "ERROR: server.js (root bundle) was not created! Build failed."
   exit 1
 fi
 
-echo "Build successful. dist/server.js exists."
+# Check if it's a bundle or the proxy
+if grep -q "require" server.js; then
+  echo "Warning: server.js seems to be a proxy/loader, not the full bundle."
+fi
+
+echo "Build successful. server.js exists and is ready."
 
 # 3. Restart the application (if using Phusion Passenger)
 echo "Restarting application..."
