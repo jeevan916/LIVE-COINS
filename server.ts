@@ -546,24 +546,6 @@ async function startServer() {
     console.error('Database initialization failed:', err);
   });
 
-  // Authentication middleware for Socket.io
-  io.use(async (socket, next) => {
-    const token = socket.handshake.auth.token;
-    const config = await getSettingsFromDB();
-    const validKeys = config.socketKeys || [];
-    const envSecretKey = process.env.SOCKET_SECRET_KEY;
-    
-    if (validKeys.length === 0 && !envSecretKey) {
-      return next();
-    }
-
-    if (validKeys.includes(token) || (envSecretKey && token === envSecretKey)) {
-      next();
-    } else {
-      next(new Error('Authentication error: Invalid token'));
-    }
-  });
-
   // Broadcast live rates every 2 seconds
   setInterval(async () => {
     try {

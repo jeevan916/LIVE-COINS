@@ -464,20 +464,6 @@ async function startServer() {
   }).catch((err) => {
     console.error("Database initialization failed:", err);
   });
-  io.use(async (socket, next) => {
-    const token = socket.handshake.auth.token;
-    const config = await getSettingsFromDB();
-    const validKeys = config.socketKeys || [];
-    const envSecretKey = process.env.SOCKET_SECRET_KEY;
-    if (validKeys.length === 0 && !envSecretKey) {
-      return next();
-    }
-    if (validKeys.includes(token) || envSecretKey && token === envSecretKey) {
-      next();
-    } else {
-      next(new Error("Authentication error: Invalid token"));
-    }
-  });
   setInterval(async () => {
     try {
       const [goldRes, silverRes] = await Promise.all([
