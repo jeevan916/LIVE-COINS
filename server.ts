@@ -416,24 +416,30 @@ async function startServer() {
       const days = range ? parseInt(range as string) : 7;
       
       // SQL interval grouping based on requested interval
-      let intervalSql = '15 MINUTE';
-      if (interval === '30m') intervalSql = '30 MINUTE';
-      if (interval === '1h') intervalSql = '1 HOUR';
+      let intervalSeconds = 900; // Default 15m
+      switch (interval) {
+        case '1m': intervalSeconds = 60; break;
+        case '5m': intervalSeconds = 300; break;
+        case '15m': intervalSeconds = 900; break;
+        case '30m': intervalSeconds = 1800; break;
+        case '1h': intervalSeconds = 3600; break;
+        case '4h': intervalSeconds = 14400; break;
+        case '1d': intervalSeconds = 86400; break;
+        case '1w': intervalSeconds = 604800; break;
+      }
 
       const [rows] = await pool.query(`
         SELECT 
-          DATE_FORMAT(timestamp, '%Y-%m-%d %H:%i:00') as time_bucket,
-          AVG(ask) as ask,
-          AVG(bid) as bid
+          DATE_FORMAT(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / ?) * ?), '%Y-%m-%d %H:%i:00') as time_bucket,
+          SUBSTRING_INDEX(GROUP_CONCAT(ask ORDER BY timestamp ASC), ',', 1) as open,
+          MAX(ask) as high,
+          MIN(ask) as low,
+          SUBSTRING_INDEX(GROUP_CONCAT(ask ORDER BY timestamp DESC), ',', 1) as close
         FROM historical_rates 
         WHERE symbol = ? AND timestamp >= DATE_SUB(NOW(), INTERVAL ? DAY)
-        GROUP BY FLOOR(UNIX_TIMESTAMP(timestamp) / (CASE 
-          WHEN ? = '30m' THEN 1800 
-          WHEN ? = '1h' THEN 3600 
-          ELSE 900 
-        END))
+        GROUP BY FLOOR(UNIX_TIMESTAMP(timestamp) / ?)
         ORDER BY time_bucket ASC
-      `, [symbol, days, interval, interval]);
+      `, [intervalSeconds, intervalSeconds, symbol, days, intervalSeconds]);
       
       res.json(rows);
     } catch (error) {
@@ -545,6 +551,31 @@ async function startServer() {
     });
   });
 
+  // Helper to process rates with margins
+  const processRates = (rates: any[], type: 'gold' | 'silver', config: any, isAdmin: boolean) => {
+    return rates
+      .filter(r => isAdmin || config.itemVisibility[r.id] !== false)
+      .map(r => {
+        const baseCommPerGram = type === 'gold' ? config.goldCommPerGram : config.silverCommPerGram;
+        const itemCommPerGram = config.itemCommissions[r.id] !== undefined 
+          ? config.itemCommissions[r.id] 
+          : baseCommPerGram;
+        
+        const totalCommission = itemCommPerGram * r.weight;
+        return {
+          ...r,
+          rawAsk: r.ask,
+          rawBid: r.bid,
+          ask: r.ask + totalCommission,
+          bid: r.bid + totalCommission,
+          high: r.high + totalCommission,
+          low: r.low + totalCommission,
+        };
+      });
+  };
+
+  let lastSaveTime = 0;
+
   // Broadcast live rates every 1 second for faster updates
   setInterval(async () => {
     try {
@@ -560,42 +591,38 @@ async function startServer() {
         const rawGoldRates = parseRates(goldText, 'gold');
         const rawSilverRates = parseRates(silverText, 'silver');
         const config = await getSettingsCached();
-
-        const processRates = (rates: any[], type: 'gold' | 'silver', isAdmin: boolean) => {
-          return rates
-            .filter(r => isAdmin || config.itemVisibility[r.id] !== false)
-            .map(r => {
-              const baseCommPerGram = type === 'gold' ? config.goldCommPerGram : config.silverCommPerGram;
-              const itemCommPerGram = config.itemCommissions[r.id] !== undefined 
-                ? config.itemCommissions[r.id] 
-                : baseCommPerGram;
-              
-              const totalCommission = itemCommPerGram * r.weight;
-              return {
-                ...r,
-                rawAsk: r.ask,
-                rawBid: r.bid,
-                ask: r.ask + totalCommission,
-                bid: r.bid + totalCommission,
-                high: r.high + totalCommission,
-                low: r.low + totalCommission,
-              };
-            });
-        };
+        
+        // Save to database every minute
+        if (Date.now() - lastSaveTime > 60000) {
+          try {
+            const processedGold = processRates(rawGoldRates, 'gold', config, false);
+            const processedSilver = processRates(rawSilverRates, 'silver', config, false);
+            
+            const allRates = [...processedGold, ...processedSilver];
+            const values = allRates.map(r => [r.type, r.id, r.bid, r.ask]);
+            if (values.length > 0) {
+              await pool.query('INSERT INTO historical_rates (type, symbol, bid, ask) VALUES ?', [values]);
+              console.log(`Saved ${values.length} rates (with margins) to historical_rates`);
+            }
+            lastSaveTime = Date.now();
+          } catch (dbErr) {
+            console.error('Error saving historical rates:', dbErr);
+          }
+        }
 
         const timestamp = new Date().toISOString();
 
         // Broadcast to public users (filtered)
         io.to('public_room').emit('rates', {
-          goldRates: processRates(rawGoldRates, 'gold', false),
-          silverRates: processRates(rawSilverRates, 'silver', false),
+          goldRates: processRates(rawGoldRates, 'gold', config, false),
+          silverRates: processRates(rawSilverRates, 'silver', config, false),
           timestamp
         });
 
         // Broadcast to admin users (unfiltered)
         io.to('admin_room').emit('rates', {
-          goldRates: processRates(rawGoldRates, 'gold', true),
-          silverRates: processRates(rawSilverRates, 'silver', true),
+          goldRates: processRates(rawGoldRates, 'gold', config, true),
+          silverRates: processRates(rawSilverRates, 'silver', config, true),
           timestamp
         });
       }

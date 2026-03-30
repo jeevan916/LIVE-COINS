@@ -51,7 +51,11 @@ const renderTable = (title: string, rates: RateItem[], type: 'gold' | 'silver') 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-indigo-500/30">
       {selectedRate && (
-        <RateDetails rate={selectedRate} onClose={() => setSelectedRate(null)} />
+        <RateDetails 
+          rate={selectedRate} 
+          allRates={[...goldRates, ...silverRates]} 
+          onClose={() => setSelectedRate(null)} 
+        />
       )}
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <header className="mb-8 flex items-center justify-between">
