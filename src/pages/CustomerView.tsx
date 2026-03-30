@@ -9,49 +9,51 @@ export default function CustomerView() {
   const { goldRates, silverRates, error, lastUpdated } = useLiveRates();
   const [activeTab, setActiveTab] = useState<'rates' | 'calculator'>('rates');
 
-  const renderTable = (title: string, rates: RateItem[], type: 'gold' | 'silver') => {
-    if (rates.length === 0) return null;
+const RateRow = React.memo(({ rate }: { rate: RateItem }) => (
+  <motion.tr
+    key={rate.id}
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    className="hover:bg-zinc-800/30 transition-colors"
+  >
+    <td className="px-6 py-4 font-medium text-zinc-200">
+      {rate.name}
+    </td>
+    <td className="px-6 py-4 text-right">
+      <PriceFlash price={rate.ask} defaultColor="text-emerald-400" />
+    </td>
+  </motion.tr>
+));
 
-    return (
-      <div className="flex h-full flex-col overflow-hidden rounded-xl border border-white/10 bg-zinc-900/50 shadow-xl backdrop-blur-sm">
-        <div className="border-b border-white/10 bg-zinc-800/50 px-6 py-4">
-          <h2 className="text-xl font-semibold text-zinc-100">{title}</h2>
-        </div>
-        <div className="flex-1 overflow-x-auto">
-          <table className="w-full text-left text-sm text-zinc-300">
-            <thead className="bg-zinc-800/30 text-xs uppercase text-zinc-400">
-              <tr>
-                <th className="px-6 py-4 font-medium">Product</th>
-                <th className="px-6 py-4 font-medium text-right">Live Rate</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              <AnimatePresence>
-                {rates.map((rate) => {
-                  return (
-                    <motion.tr
-                      key={rate.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="hover:bg-zinc-800/30 transition-colors"
-                    >
-                      <td className="px-6 py-4 font-medium text-zinc-200">
-                        {rate.name}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <PriceFlash price={rate.ask} defaultColor="text-emerald-400" />
-                      </td>
-                    </motion.tr>
-                  );
-                })}
-              </AnimatePresence>
-            </tbody>
-          </table>
-        </div>
+const renderTable = (title: string, rates: RateItem[], type: 'gold' | 'silver') => {
+  if (rates.length === 0) return null;
+
+  return (
+    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-white/10 bg-zinc-900/50 shadow-xl backdrop-blur-sm">
+      <div className="border-b border-white/10 bg-zinc-800/50 px-6 py-4">
+        <h2 className="text-xl font-semibold text-zinc-100">{title}</h2>
       </div>
-    );
-  };
+      <div className="flex-1 overflow-x-auto">
+        <table className="w-full text-left text-sm text-zinc-300">
+          <thead className="bg-zinc-800/30 text-xs uppercase text-zinc-400">
+            <tr>
+              <th className="px-6 py-4 font-medium">Product</th>
+              <th className="px-6 py-4 font-medium text-right">Live Rate</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            <AnimatePresence>
+              {rates.map((rate) => (
+                <RateRow key={rate.id} rate={rate} />
+              ))}
+            </AnimatePresence>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-indigo-500/30">
