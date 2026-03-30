@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useLiveRates, RateItem } from '../useLiveRates';
-import { RefreshCw, AlertCircle } from 'lucide-react';
+import { RefreshCw, AlertCircle, Calculator, TrendingUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PriceFlash } from '../components/PriceFlash';
+import { JewelleryCalculator } from '../components/JewelleryCalculator';
 
 export default function CustomerView() {
   const { goldRates, silverRates, error, lastUpdated } = useLiveRates();
+  const [activeTab, setActiveTab] = useState<'rates' | 'calculator'>('rates');
 
   const renderTable = (title: string, rates: RateItem[], type: 'gold' | 'silver') => {
     if (rates.length === 0) return null;
@@ -82,6 +84,32 @@ export default function CustomerView() {
           </div>
         )}
 
+        {/* Tabs */}
+        <div className="mb-8 flex space-x-2 rounded-lg bg-zinc-900/50 p-1 border border-white/5 w-fit">
+          <button
+            onClick={() => setActiveTab('rates')}
+            className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === 'rates' 
+                ? 'bg-indigo-500 text-white shadow-sm' 
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4" />
+            Live Rates
+          </button>
+          <button
+            onClick={() => setActiveTab('calculator')}
+            className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === 'calculator' 
+                ? 'bg-indigo-500 text-white shadow-sm' 
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+            }`}
+          >
+            <Calculator className="w-4 h-4" />
+            Jewellery Calculator
+          </button>
+        </div>
+
         {!error && goldRates.length === 0 && silverRates.length === 0 && (
           <div className="flex h-64 flex-col items-center justify-center gap-4 rounded-xl border border-white/5 bg-zinc-900/20">
             <RefreshCw className="h-8 w-8 animate-spin text-indigo-500" />
@@ -89,11 +117,15 @@ export default function CustomerView() {
           </div>
         )}
 
-        {(goldRates.length > 0 || silverRates.length > 0) && (
+        {activeTab === 'rates' && (goldRates.length > 0 || silverRates.length > 0) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
             {renderTable('Gold Coins', goldRates, 'gold')}
             {renderTable('Silver Coins', silverRates, 'silver')}
           </div>
+        )}
+
+        {activeTab === 'calculator' && (goldRates.length > 0 || silverRates.length > 0) && (
+          <JewelleryCalculator goldRates={goldRates} silverRates={silverRates} />
         )}
       </div>
     </div>
