@@ -309,17 +309,25 @@ setInterval(saveHistoricalRates, 60 * 60 * 1000);
 async function startServer() {
   console.log(`Starting server in ${process.env.NODE_ENV || 'production'} mode...`);
   
-  await initDB();
-  
-  // Initial save of historical rates if table is empty
-  const [countRows] = await pool.query('SELECT COUNT(*) as count FROM historical_rates');
-  if ((countRows as any)[0].count === 0) {
-    await saveHistoricalRates();
-  }
-
+  // Start listening IMMEDIATELY so Hostinger Passenger doesn't timeout
   httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
+
+  // Initialize DB asynchronously without crashing the server if it fails
+  try {
+    await initDB();
+    
+    // Initial save of historical rates if table is empty
+    const [countRows] = await pool.query('SELECT COUNT(*) as count FROM historical_rates');
+    if ((countRows as any)[0].count === 0) {
+      await saveHistoricalRates();
+    }
+  } catch (dbError) {
+    console.error('CRITICAL: Database initialization failed on startup:', dbError);
+    // We don't exit here, so the API can still return 500s or health check failures
+    // instead of the whole Node process crashing and causing a 503.
+  }
   
   apiRouter.use((req, res, next) => {
     console.log(`[API Request] ${req.method} ${req.url}`);
