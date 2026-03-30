@@ -118,6 +118,8 @@ app.use(express.json());
 // Mount API Router EARLY at the top level
 app.use('/api', apiRouter);
 
+let resolvedDistPath = '';
+
 // Diagnostic route at the root level
 app.get('/health-check', (req, res) => {
   res.json({
@@ -126,7 +128,27 @@ app.get('/health-check', (req, res) => {
     env: process.env.NODE_ENV,
     cwd: process.cwd(),
     dirname: _dirname,
+    distPath: resolvedDistPath,
     timestamp: new Date().toISOString()
+  });
+});
+
+app.get('/api/debug-files', (req, res) => {
+  const safeReaddir = (dir: string) => {
+    try {
+      return fs.readdirSync(dir);
+    } catch (e: any) {
+      return `Error: ${e.message}`;
+    }
+  };
+
+  res.json({
+    cwdFiles: safeReaddir(process.cwd()),
+    distFiles: safeReaddir(path.join(process.cwd(), 'dist')),
+    distPublicFiles: safeReaddir(path.join(process.cwd(), 'dist', 'public')),
+    distPublicAssets: safeReaddir(path.join(process.cwd(), 'dist', 'public', 'assets')),
+    parentPublicHtml: safeReaddir(path.join(process.cwd(), '..', 'public_html')),
+    parentPublicHtmlAssets: safeReaddir(path.join(process.cwd(), '..', 'public_html', 'assets')),
   });
 });
 
@@ -605,13 +627,10 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const possibleDistPaths = [
-      path.join(process.cwd(), 'public'),
-      path.join(process.cwd(), 'dist', 'public'),
-      path.join(_dirname, 'public'),
+      path.join(process.cwd(), 'dist', 'public'), // Vite default
       path.join(_dirname, 'dist', 'public'),
-      path.join(process.cwd(), 'public_html', 'public'),
-      path.join(process.cwd(), '..', 'public_html', 'public'),
-      process.cwd()
+      path.join(process.cwd(), '..', 'public_html'), // Hostinger public_html
+      path.join(process.cwd(), 'public_html'),
     ];
 
     let distPath = '';
@@ -622,12 +641,21 @@ async function startServer() {
         break;
       }
     }
+    
+    resolvedDistPath = distPath;
 
     if (distPath) {
       app.use(express.static(distPath));
       app.use((req, res, next) => {
         if (req.method !== 'GET') return next();
         if (req.url.startsWith('/api')) return next();
+        
+        // CRITICAL FIX: Do not serve index.html for missing static assets (.js, .css, etc.)
+        // This prevents the "white screen" error where the browser tries to parse HTML as JavaScript
+        if (req.url.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/)) {
+          return res.status(404).send('Asset not found');
+        }
+        
         res.sendFile(path.join(distPath, 'index.html'));
       });
     } else {

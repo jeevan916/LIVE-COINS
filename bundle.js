@@ -116,6 +116,7 @@ app.use((req, res, next) => {
 });
 app.use(import_express.default.json());
 app.use("/api", apiRouter);
+var resolvedDistPath = "";
 app.get("/health-check", (req, res) => {
   res.json({
     status: "online",
@@ -123,7 +124,25 @@ app.get("/health-check", (req, res) => {
     env: process.env.NODE_ENV,
     cwd: process.cwd(),
     dirname: _dirname,
+    distPath: resolvedDistPath,
     timestamp: (/* @__PURE__ */ new Date()).toISOString()
+  });
+});
+app.get("/api/debug-files", (req, res) => {
+  const safeReaddir = (dir) => {
+    try {
+      return import_fs.default.readdirSync(dir);
+    } catch (e) {
+      return `Error: ${e.message}`;
+    }
+  };
+  res.json({
+    cwdFiles: safeReaddir(process.cwd()),
+    distFiles: safeReaddir(import_path.default.join(process.cwd(), "dist")),
+    distPublicFiles: safeReaddir(import_path.default.join(process.cwd(), "dist", "public")),
+    distPublicAssets: safeReaddir(import_path.default.join(process.cwd(), "dist", "public", "assets")),
+    parentPublicHtml: safeReaddir(import_path.default.join(process.cwd(), "..", "public_html")),
+    parentPublicHtmlAssets: safeReaddir(import_path.default.join(process.cwd(), "..", "public_html", "assets"))
   });
 });
 app.get("/test-node", (req, res) => {
@@ -508,13 +527,12 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const possibleDistPaths = [
-      import_path.default.join(process.cwd(), "public"),
       import_path.default.join(process.cwd(), "dist", "public"),
-      import_path.default.join(_dirname, "public"),
+      // Vite default
       import_path.default.join(_dirname, "dist", "public"),
-      import_path.default.join(process.cwd(), "public_html", "public"),
-      import_path.default.join(process.cwd(), "..", "public_html", "public"),
-      process.cwd()
+      import_path.default.join(process.cwd(), "..", "public_html"),
+      // Hostinger public_html
+      import_path.default.join(process.cwd(), "public_html")
     ];
     let distPath = "";
     for (const p of possibleDistPaths) {
@@ -524,11 +542,15 @@ async function startServer() {
         break;
       }
     }
+    resolvedDistPath = distPath;
     if (distPath) {
       app.use(import_express.default.static(distPath));
       app.use((req, res, next) => {
         if (req.method !== "GET") return next();
         if (req.url.startsWith("/api")) return next();
+        if (req.url.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/)) {
+          return res.status(404).send("Asset not found");
+        }
         res.sendFile(import_path.default.join(distPath, "index.html"));
       });
     } else {
