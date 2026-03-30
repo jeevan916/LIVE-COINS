@@ -9,12 +9,8 @@ export default function CustomerView() {
   const { goldRates, silverRates, error, lastUpdated } = useLiveRates();
   const [activeTab, setActiveTab] = useState<'rates' | 'calculator'>('rates');
 
-const RateRow = React.memo(({ rate }: { rate: RateItem }) => (
-  <motion.tr
-    key={rate.id}
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    exit={{ opacity: 0 }}
+const RateRow = ({ rate }: { rate: RateItem }) => (
+  <tr
     className="hover:bg-zinc-800/30 transition-colors"
   >
     <td className="px-6 py-4 font-medium text-zinc-200">
@@ -23,8 +19,8 @@ const RateRow = React.memo(({ rate }: { rate: RateItem }) => (
     <td className="px-6 py-4 text-right">
       <PriceFlash price={rate.ask} defaultColor="text-emerald-400" />
     </td>
-  </motion.tr>
-));
+  </tr>
+);
 
 const renderTable = (title: string, rates: RateItem[], type: 'gold' | 'silver') => {
   if (rates.length === 0) return null;
@@ -43,11 +39,19 @@ const renderTable = (title: string, rates: RateItem[], type: 'gold' | 'silver') 
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
-            <AnimatePresence>
-              {rates.map((rate) => (
-                <RateRow key={rate.id} rate={rate} />
-              ))}
-            </AnimatePresence>
+            {rates.map((rate) => (
+              <tr
+                key={rate.id}
+                className="hover:bg-zinc-800/30 transition-colors"
+              >
+                <td className="px-6 py-4 font-medium text-zinc-200">
+                  {rate.name}
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <PriceFlash price={rate.ask} defaultColor="text-emerald-400" />
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
