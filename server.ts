@@ -8,18 +8,21 @@ import mysql from 'mysql2/promise';
 import { fileURLToPath } from 'url';
 
 // Robust path handling for both ESM and CJS environments
-let _filename: string;
-let _dirname: string;
+// We use a trick to hide import.meta from esbuild when bundling for CJS
+const getDirname = () => {
+  if (typeof __dirname !== 'undefined') return __dirname;
+  // @ts-ignore
+  return path.dirname(fileURLToPath(eval('import.meta.url')));
+};
 
-try {
-  // @ts-ignore - __filename is available in CJS
-  _filename = __filename;
-  // @ts-ignore - __dirname is available in CJS
-  _dirname = __dirname;
-} catch (e) {
-  _filename = fileURLToPath(import.meta.url);
-  _dirname = path.dirname(_filename);
-}
+const getFilename = () => {
+  if (typeof __filename !== 'undefined') return __filename;
+  // @ts-ignore
+  return fileURLToPath(eval('import.meta.url'));
+};
+
+const _dirname = getDirname();
+const _filename = getFilename();
 
 // Try loading environment variables from the specific Hostinger path first
 const possibleEnvPaths = [
@@ -46,6 +49,7 @@ console.log('Time:', new Date().toISOString());
 console.log('CWD:', process.cwd());
 console.log('Dirname:', _dirname);
 console.log('Env Port:', process.env.PORT);
+console.log('Available Env Keys:', Object.keys(process.env).filter(k => !k.includes('PASS') && !k.includes('SECRET')).join(', '));
 console.log('NODE_ENV:', process.env.NODE_ENV);
 console.log('DB Host:', process.env.DB_HOST);
 console.log('DB User:', process.env.DB_USER);
