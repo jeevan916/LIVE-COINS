@@ -15,13 +15,14 @@ export function JewelleryCalculator({ goldRates, silverRates }: JewelleryCalcula
   const [gst, setGst] = useState<string>('3');
 
   // Calculate base 1gm rate from the first available rate of the selected metal
+  // Assuming the API rate includes 3% GST, we divide by 1.03 to get the pre-GST rate
   const baseRatePerGram = useMemo(() => {
     const rates = metal === 'gold' ? goldRates : silverRates;
     if (!rates || rates.length === 0) return 0;
     
     // Use the first item as the benchmark (usually the main 24K or 999 item)
     const benchmark = rates[0];
-    return benchmark.ask / benchmark.weight;
+    return (benchmark.ask / benchmark.weight) / 1.03;
   }, [metal, goldRates, silverRates]);
 
   const calculations = useMemo(() => {
