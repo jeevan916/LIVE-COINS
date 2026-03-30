@@ -14,7 +14,11 @@ npm install --production=false
 
 # 2. Build the application
 echo "Building application..."
+npm run clean || true
+ls -la # Show files before build
 npm run build
+ls -la # Show files after build
+ls -la dist # Show dist content
 
 # 3. Restart the application (if using Phusion Passenger)
 echo "Restarting application..."
