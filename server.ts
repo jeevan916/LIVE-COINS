@@ -224,6 +224,10 @@ async function getSettingsFromDB() {
 async function startServer() {
   console.log(`Starting server in ${process.env.NODE_ENV || 'production'} mode...`);
   
+  httpServer.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on http://0.0.0.0:${PORT}`);
+  });
+  
   apiRouter.use((req, res, next) => {
     console.log(`[API Request] ${req.method} ${req.url}`);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -526,10 +530,6 @@ async function startServer() {
     } else {
       next(err);
     }
-  });
-
-  httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
   });
 }
 

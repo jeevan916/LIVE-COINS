@@ -29,6 +29,13 @@ npm run build
 ls -la # Show files after build
 ls -la dist || true # Show dist content
 
+if [ ! -f "dist/server.js" ]; then
+  echo "ERROR: dist/server.js was not created! Build failed."
+  exit 1
+fi
+
+echo "Build successful. dist/server.js exists."
+
 # 3. Restart the application (if using Phusion Passenger)
 echo "Restarting application..."
 mkdir -p tmp
