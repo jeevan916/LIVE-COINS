@@ -11,11 +11,11 @@ export default function CustomerView() {
     if (rates.length === 0) return null;
 
     return (
-      <div className="mb-8 overflow-hidden rounded-xl border border-white/10 bg-zinc-900/50 shadow-xl backdrop-blur-sm">
+      <div className="flex h-full flex-col overflow-hidden rounded-xl border border-white/10 bg-zinc-900/50 shadow-xl backdrop-blur-sm">
         <div className="border-b border-white/10 bg-zinc-800/50 px-6 py-4">
           <h2 className="text-xl font-semibold text-zinc-100">{title}</h2>
         </div>
-        <div className="overflow-x-auto">
+        <div className="flex-1 overflow-x-auto">
           <table className="w-full text-left text-sm text-zinc-300">
             <thead className="bg-zinc-800/30 text-xs uppercase text-zinc-400">
               <tr>
@@ -53,7 +53,7 @@ export default function CustomerView() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-indigo-500/30">
-      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <header className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-white">Bullion Rates kalyan</h1>
@@ -90,9 +90,9 @@ export default function CustomerView() {
         )}
 
         {(goldRates.length > 0 || silverRates.length > 0) && (
-          <div className="space-y-8">
-            {renderTable('Gold', goldRates, 'gold')}
-            {renderTable('Silver', silverRates, 'silver')}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            {renderTable('Gold Coins', goldRates, 'gold')}
+            {renderTable('Silver Coins', silverRates, 'silver')}
           </div>
         )}
       </div>
