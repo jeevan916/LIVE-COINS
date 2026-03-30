@@ -115,9 +115,6 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-// Mount API Router EARLY at the top level
-app.use('/api', apiRouter);
-
 let resolvedDistPath = '';
 
 // Diagnostic route at the root level
@@ -133,7 +130,7 @@ app.get('/health-check', (req, res) => {
   });
 });
 
-app.get('/api/debug-files', (req, res) => {
+app.get('/debug-files', (req, res) => {
   const safeReaddir = (dir: string) => {
     try {
       return fs.readdirSync(dir);
@@ -151,6 +148,9 @@ app.get('/api/debug-files', (req, res) => {
     parentPublicHtmlAssets: safeReaddir(path.join(process.cwd(), '..', 'public_html', 'assets')),
   });
 });
+
+// Mount API Router EARLY at the top level
+app.use('/api', apiRouter);
 
 app.get('/test-node', (req, res) => {
   res.send('<h1>Node.js is successfully handling requests!</h1>');

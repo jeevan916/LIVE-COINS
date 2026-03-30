@@ -115,7 +115,6 @@ app.use((req, res, next) => {
   next();
 });
 app.use(import_express.default.json());
-app.use("/api", apiRouter);
 var resolvedDistPath = "";
 app.get("/health-check", (req, res) => {
   res.json({
@@ -128,7 +127,7 @@ app.get("/health-check", (req, res) => {
     timestamp: (/* @__PURE__ */ new Date()).toISOString()
   });
 });
-app.get("/api/debug-files", (req, res) => {
+app.get("/debug-files", (req, res) => {
   const safeReaddir = (dir) => {
     try {
       return import_fs.default.readdirSync(dir);
@@ -145,6 +144,7 @@ app.get("/api/debug-files", (req, res) => {
     parentPublicHtmlAssets: safeReaddir(import_path.default.join(process.cwd(), "..", "public_html", "assets"))
   });
 });
+app.use("/api", apiRouter);
 app.get("/test-node", (req, res) => {
   res.send("<h1>Node.js is successfully handling requests!</h1>");
 });
