@@ -410,13 +410,31 @@ async function startServer() {
 
   apiRouter.get('/historical-rates', async (req, res) => {
     try {
-      // Get rates from the last 7 days
+      const { symbol, range, interval } = req.query;
+      
+      // Default to 7 days if range not provided
+      const days = range ? parseInt(range as string) : 7;
+      
+      // SQL interval grouping based on requested interval
+      let intervalSql = '15 MINUTE';
+      if (interval === '30m') intervalSql = '30 MINUTE';
+      if (interval === '1h') intervalSql = '1 HOUR';
+
       const [rows] = await pool.query(`
-        SELECT type, symbol, bid, ask, timestamp 
+        SELECT 
+          DATE_FORMAT(timestamp, '%Y-%m-%d %H:%i:00') as time_bucket,
+          AVG(ask) as ask,
+          AVG(bid) as bid
         FROM historical_rates 
-        WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-        ORDER BY timestamp ASC
-      `);
+        WHERE symbol = ? AND timestamp >= DATE_SUB(NOW(), INTERVAL ? DAY)
+        GROUP BY FLOOR(UNIX_TIMESTAMP(timestamp) / (CASE 
+          WHEN ? = '30m' THEN 1800 
+          WHEN ? = '1h' THEN 3600 
+          ELSE 900 
+        END))
+        ORDER BY time_bucket ASC
+      `, [symbol, days, interval, interval]);
+      
       res.json(rows);
     } catch (error) {
       console.error('Error fetching historical rates:', error);

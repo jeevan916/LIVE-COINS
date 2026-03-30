@@ -1,26 +1,14 @@
 import React, { useState } from 'react';
 import { useLiveRates, RateItem } from '../useLiveRates';
 import { RefreshCw, AlertCircle, Calculator, TrendingUp } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
 import { PriceFlash } from '../components/PriceFlash';
 import { JewelleryCalculator } from '../components/JewelleryCalculator';
+import { RateDetails } from '../components/RateDetails';
 
 export default function CustomerView() {
   const { goldRates, silverRates, error, lastUpdated } = useLiveRates();
   const [activeTab, setActiveTab] = useState<'rates' | 'calculator'>('rates');
-
-const RateRow = ({ rate }: { rate: RateItem }) => (
-  <tr
-    className="hover:bg-zinc-800/30 transition-colors"
-  >
-    <td className="px-6 py-4 font-medium text-zinc-200">
-      {rate.name}
-    </td>
-    <td className="px-6 py-4 text-right">
-      <PriceFlash price={rate.ask} defaultColor="text-emerald-400" />
-    </td>
-  </tr>
-);
+  const [selectedRate, setSelectedRate] = useState<RateItem | null>(null);
 
 const renderTable = (title: string, rates: RateItem[], type: 'gold' | 'silver') => {
   if (rates.length === 0) return null;
@@ -42,7 +30,8 @@ const renderTable = (title: string, rates: RateItem[], type: 'gold' | 'silver') 
             {rates.map((rate) => (
               <tr
                 key={rate.id}
-                className="hover:bg-zinc-800/30 transition-colors"
+                onClick={() => setSelectedRate(rate)}
+                className="hover:bg-zinc-800/30 transition-colors cursor-pointer"
               >
                 <td className="px-6 py-4 font-medium text-zinc-200">
                   {rate.name}
@@ -61,6 +50,9 @@ const renderTable = (title: string, rates: RateItem[], type: 'gold' | 'silver') 
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-indigo-500/30">
+      {selectedRate && (
+        <RateDetails rate={selectedRate} onClose={() => setSelectedRate(null)} />
+      )}
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <header className="mb-8 flex items-center justify-between">
           <div>
