@@ -2,19 +2,19 @@
   "name": "react-example",
   "private": true,
   "version": "0.0.0",
-  "main": "server.js",
+  "main": "hostinger-entry.js",
   "scripts": {
     "dev": "tsx server.ts",
-    "start": "node server.js",
+    "start": "node hostinger-entry.js",
     "build": "npm run build:client && npm run build:server",
     "build:client": "vite build",
-    "build:server": "esbuild server.ts --bundle --platform=node --target=node20 --outfile=server.js --format=cjs --packages=external",
+    "build:server": "esbuild server.ts --bundle --platform=node --target=node18 --outfile=server.js --format=cjs --packages=external",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
@@ -29,6 +29,7 @@
     "lucide-react": "^0.546.0",
     "motion": "^12.38.0",
     "mysql2": "^3.20.0",
+    "node-fetch": "^2.7.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.13.1",

@@ -6,6 +6,7 @@ import { Server } from 'socket.io';
 import fs from 'fs';
 import mysql from 'mysql2/promise';
 import { fileURLToPath } from 'url';
+import fetch from 'node-fetch';
 
 // Robust path handling for both ESM and CJS environments
 let _filename: string;
