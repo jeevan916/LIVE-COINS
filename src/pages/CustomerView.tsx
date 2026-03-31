@@ -4,6 +4,7 @@ import { RefreshCw, AlertCircle, Calculator, TrendingUp } from 'lucide-react';
 import { PriceFlash } from '../components/PriceFlash';
 import { JewelleryCalculator } from '../components/JewelleryCalculator';
 import { RateDetails } from '../components/RateDetails';
+import { formatToIST } from '../lib/time';
 
 export default function CustomerView() {
   const { goldRates, silverRates, error, lastUpdated } = useLiveRates();
@@ -73,7 +74,7 @@ const renderTable = (title: string, rates: RateItem[], type: 'gold' | 'silver') 
             </div>
             {lastUpdated && (
               <span className="text-xs text-zinc-500 font-mono">
-                Updated: {lastUpdated.toLocaleTimeString()}
+                Updated: {formatToIST(lastUpdated)}
               </span>
             )}
           </div>

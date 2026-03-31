@@ -19,6 +19,7 @@ export function RateDetails({ rate, allRates, onClose }: RateDetailsProps) {
   const macdSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   
   const [interval, setInterval] = useState<'1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w'>('15m');
+  const [range, setRange] = useState<string>('30');
   const [loading, setLoading] = useState(true);
   const [showRSI, setShowRSI] = useState(false);
   const [showMACD, setShowMACD] = useState(false);
@@ -37,6 +38,20 @@ export function RateDetails({ rate, allRates, onClose }: RateDetailsProps) {
       timeScale: {
         timeVisible: true,
         secondsVisible: false,
+      },
+      localization: {
+        timeFormatter: (time: number) => {
+          const date = new Date(time * 1000);
+          return date.toLocaleString("en-IN", {
+            timeZone: "Asia/Kolkata",
+            hour12: false,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+        },
       },
     });
 
@@ -98,11 +113,11 @@ export function RateDetails({ rate, allRates, onClose }: RateDetailsProps) {
     setLoading(true);
     
     const fetchPromises = [
-        fetch(`/api/historical-rates?symbol=${rate.id}&range=30&interval=${interval}`).then(res => res.json())
+        fetch(`/api/historical-rates?symbol=${rate.id}&range=${range}&interval=${interval}`).then(res => res.json())
     ];
 
     if (comparisonSymbol) {
-        fetchPromises.push(fetch(`/api/historical-rates?symbol=${comparisonSymbol}&range=30&interval=${interval}`).then(res => res.json()));
+        fetchPromises.push(fetch(`/api/historical-rates?symbol=${comparisonSymbol}&range=${range}&interval=${interval}`).then(res => res.json()));
     }
 
     Promise.all(fetchPromises)
@@ -170,6 +185,18 @@ export function RateDetails({ rate, allRates, onClose }: RateDetailsProps) {
         </div>
 
         <div className="flex gap-2 mb-6 flex-wrap">
+          {(['1', '7', '30', '90', '365'] as const).map((r) => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                range === r ? 'bg-indigo-500 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+              }`}
+            >
+              {r === '1' ? '1D' : r === '7' ? '1W' : r === '30' ? '1M' : r === '90' ? '3M' : '1Y'}
+            </button>
+          ))}
+          <div className="h-6 w-px bg-zinc-700 mx-2" />
           {(['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w'] as const).map((i) => (
             <button
               key={i}

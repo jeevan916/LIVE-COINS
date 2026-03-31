@@ -600,13 +600,16 @@ async function startServer() {
             
             const allRates = [...processedGold, ...processedSilver];
             const values = allRates.map(r => [r.type, r.id, r.bid, r.ask]);
+            
             if (values.length > 0) {
               await pool.query('INSERT INTO historical_rates (type, symbol, bid, ask) VALUES ?', [values]);
-              console.log(`Saved ${values.length} rates (with margins) to historical_rates`);
+              console.log(`[DataRecording] Successfully saved ${values.length} rates to historical_rates at ${new Date().toISOString()}`);
+            } else {
+              console.warn(`[DataRecording] No rates to save at ${new Date().toISOString()}`);
             }
             lastSaveTime = Date.now();
           } catch (dbErr) {
-            console.error('Error saving historical rates:', dbErr);
+            console.error(`[DataRecording] CRITICAL: Database save failed at ${new Date().toISOString()}:`, dbErr);
           }
         }
 

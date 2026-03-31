@@ -171,10 +171,6 @@ export function JewelleryCalculator({ goldRates, silverRates }: JewelleryCalcula
         {/* Results */}
         <div className="mt-8 rounded-xl bg-zinc-950/50 p-5 border border-white/5 space-y-3">
           <div className="flex justify-between text-sm">
-            <span className="text-zinc-400">Live Base Rate (24K/999)</span>
-            <span className="text-zinc-200 font-mono">₹{baseRatePerGram.toLocaleString('en-IN', { maximumFractionDigits: 2 })} /gm</span>
-          </div>
-          <div className="flex justify-between text-sm">
             <span className="text-zinc-400">Applied Rate ({purity * 100}%)</span>
             <span className="text-zinc-200 font-mono">₹{calculations.metalRatePerGram.toLocaleString('en-IN', { maximumFractionDigits: 2 })} /gm</span>
           </div>
