@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLiveRates, RateItem } from '../useLiveRates';
 import { useAppConfig } from '../useAppConfig';
-import { Settings, RefreshCw, AlertCircle, Eye, EyeOff, LogOut, Key, Trash2, Plus, Database } from 'lucide-react';
+import { Settings, RefreshCw, AlertCircle, Eye, EyeOff, LogOut, Key, Trash2, Plus, Database, BookOpen, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { PriceFlash } from '../components/PriceFlash';
@@ -41,6 +41,7 @@ export default function AdminView() {
   const { goldRates, silverRates, error, lastUpdated } = useLiveRates();
   const { config, updateConfig, loading } = useAppConfig();
   const [showSettings, setShowSettings] = useState(true);
+  const [showApiDocs, setShowApiDocs] = useState(false);
   const [newKey, setNewKey] = useState('');
   const [dbStatus, setDbStatus] = useState<{ connected: boolean; error?: string; code?: string } | null>(null);
   const navigate = useNavigate();
@@ -324,6 +325,16 @@ export default function AdminView() {
           )}
         </AnimatePresence>
 
+        <div className="mt-8 flex justify-end">
+          <button
+            onClick={() => setShowApiDocs(true)}
+            className="flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+          >
+            <BookOpen className="w-4 h-4" />
+            API Documentation & Usage
+          </button>
+        </div>
+
         {dbStatus && !dbStatus.connected && (
           <div className="mb-8 flex flex-col gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-red-400">
             <div className="flex items-center gap-3">
@@ -358,6 +369,141 @@ export default function AdminView() {
             {renderTable('Silver Rates', silverRates, 'silver')}
           </div>
         )}
+
+        <AnimatePresence>
+          {showApiDocs && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+              onClick={() => setShowApiDocs(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-3xl overflow-hidden rounded-xl border border-white/10 bg-zinc-900 shadow-2xl"
+              >
+                <div className="flex items-center justify-between border-b border-white/10 bg-zinc-800/50 px-6 py-4">
+                  <h2 className="text-xl font-semibold text-zinc-100 flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-indigo-400" />
+                    API Documentation & Usage Guide
+                  </h2>
+                  <button
+                    onClick={() => setShowApiDocs(false)}
+                    className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="max-h-[70vh] overflow-y-auto p-6 space-y-6 text-zinc-300 text-sm">
+                  
+                  <section>
+                    <h3 className="text-lg font-medium text-indigo-300 mb-2">Overview</h3>
+                    <p>
+                      The Bullion Rates API provides real-time access to gold and silver prices.
+                      You can connect via WebSocket for live streaming updates or use the REST API to fetch the latest rates.
+                    </p>
+                  </section>
+
+                  <section>
+                    <h3 className="text-lg font-medium text-indigo-300 mb-2">1. WebSocket Connection (Real-time)</h3>
+                    <p className="mb-2">Connect to the WebSocket server to receive live rate updates every second.</p>
+                    <div className="bg-zinc-950 rounded-lg p-4 border border-white/5 overflow-x-auto">
+                      <pre className="text-emerald-400 font-mono">
+{`import { io } from 'socket.io-client';
+
+// Connect to the server
+const socket = io('https://your-domain.com', {
+  auth: {
+    token: 'YOUR_API_KEY' // Replace with your generated API key
+  }
+});
+
+// Listen for live rates
+socket.on('rates', (data) => {
+  console.log('Live Rates Updated:', data.timestamp);
+  console.log('Gold Rates:', data.goldRates);
+  console.log('Silver Rates:', data.silverRates);
+});
+
+// Handle connection errors
+socket.on('connect_error', (err) => {
+  console.error('Connection failed:', err.message);
+});`}
+                      </pre>
+                    </div>
+                  </section>
+
+                  <section>
+                    <h3 className="text-lg font-medium text-indigo-300 mb-2">2. REST API (Polling)</h3>
+                    <p className="mb-2">Fetch the latest rates via a standard HTTP GET request.</p>
+                    
+                    <div className="mb-4">
+                      <h4 className="font-medium text-zinc-200 mb-1">Endpoint:</h4>
+                      <code className="bg-zinc-800 px-2 py-1 rounded text-indigo-300">GET /api/rates</code>
+                    </div>
+
+                    <div className="mb-4">
+                      <h4 className="font-medium text-zinc-200 mb-1">Authentication:</h4>
+                      <p className="mb-2">You can pass the API key either via the <code className="text-emerald-400">Authorization</code> header or as a query parameter.</p>
+                      
+                      <div className="bg-zinc-950 rounded-lg p-4 border border-white/5 overflow-x-auto mb-2">
+                        <pre className="text-emerald-400 font-mono">
+{`// Method A: Using Authorization Header (Recommended)
+fetch('https://your-domain.com/api/rates', {
+  headers: {
+    'Authorization': 'Bearer YOUR_API_KEY'
+  }
+})
+.then(res => res.json())
+.then(data => console.log(data));`}
+                        </pre>
+                      </div>
+
+                      <div className="bg-zinc-950 rounded-lg p-4 border border-white/5 overflow-x-auto">
+                        <pre className="text-emerald-400 font-mono">
+{`// Method B: Using Query Parameter
+fetch('https://your-domain.com/api/rates?key=YOUR_API_KEY')
+.then(res => res.json())
+.then(data => console.log(data));`}
+                        </pre>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section>
+                    <h3 className="text-lg font-medium text-indigo-300 mb-2">Response Format</h3>
+                    <p className="mb-2">Both the WebSocket event and the REST API return data in the following JSON structure:</p>
+                    <div className="bg-zinc-950 rounded-lg p-4 border border-white/5 overflow-x-auto">
+                      <pre className="text-emerald-400 font-mono">
+{`{
+  "timestamp": "2024-03-30T10:00:00.000Z",
+  "goldRates": [
+    {
+      "id": "item_id",
+      "name": "Gold 999",
+      "bid": 70000,
+      "ask": 70050,
+      "high": 70100,
+      "low": 69900,
+      "weight": 10,
+      "type": "gold"
+    }
+  ],
+  "silverRates": [ ... ]
+}`}
+                      </pre>
+                    </div>
+                  </section>
+
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
